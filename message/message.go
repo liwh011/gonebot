@@ -1,7 +1,6 @@
 package message
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
@@ -16,16 +15,10 @@ func (seg *MessageSegment) IsText() bool {
 	return seg.Type == "text"
 }
 
-type Message struct {
-	segs []MessageSegment
-}
+type Message []MessageSegment
 
-func (m *Message) GetSegment(index int) MessageSegment {
-	return m.segs[index]
-}
-
-func (m *Message) Len() int {
-	return len(m.segs)
+func (m Message) Len() int {
+	return len(m)
 }
 
 type t_StringOrSegment interface{}
@@ -45,7 +38,7 @@ func (m *Message) Append(t t_StringOrSegment) (err error) {
 
 // 添加一个消息段到消息数组末尾
 func (m *Message) AppendSegment(seg MessageSegment) {
-	m.segs = append(m.segs, seg)
+	*m = append(*m, seg)
 }
 
 // 添加一个字符串到消息数组末尾
@@ -70,17 +63,17 @@ func (m *Message) Extend(msg t_MessageOrSegmentArray) (err error) {
 
 // 拼接一个消息数组到消息数组末尾
 func (m *Message) ExtendMessage(msg Message) {
-	m.segs = append(m.segs, msg.segs...)
+	*m = append(*m, msg...)
 }
 
 // 拼接多个消息段到消息数组末尾
 func (m *Message) ExtendSegmentArray(segs []MessageSegment) {
-	m.segs = append(m.segs, segs...)
+	*m = append(*m, segs...)
 }
 
 // 提取消息内纯文本消息
-func (m *Message) ExtractPlainText() (text string) {
-	for _, seg := range m.segs {
+func (m Message) ExtractPlainText() (text string) {
+	for _, seg := range m {
 		if seg.IsText() {
 			text += seg.Data["text"].(string)
 		}
@@ -88,9 +81,9 @@ func (m *Message) ExtractPlainText() (text string) {
 	return
 }
 
-func (m *Message) FilterByType(t string) []MessageSegment {
+func (m Message) FilterByType(t string) []MessageSegment {
 	segs := make([]MessageSegment, 0)
-	for _, seg := range m.segs {
+	for _, seg := range m {
 		if seg.Type == t {
 			segs = append(segs, seg)
 		}
@@ -98,14 +91,14 @@ func (m *Message) FilterByType(t string) []MessageSegment {
 	return segs
 }
 
-func (m Message) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m.segs)
-}
+// func (m Message) MarshalJSON() ([]byte, error) {
+// 	return json.Marshal(m.segs)
+// }
 
-func (m *Message) UnmarshalJSON(data []byte) (err error) {
-	err = json.Unmarshal(data, &m.segs)
-	return
-}
+// func (m *Message) UnmarshalJSON(data []byte) (err error) {
+// 	err = json.Unmarshal(data, &m.segs)
+// 	return
+// }
 
 type t_StringOrMsgOrSegOrArray interface{}
 
@@ -149,37 +142,55 @@ func Join(msgs ...t_StringOrMsgOrSegOrArray) (msg Message, err error) {
 }
 
 func Format(tmpl string, args ...interface{}) (msg Message, err error) {
+	// 将普通参数、消息段参数分离开来
 	argsNoSeg := make([]interface{}, 0, len(args))
+	argsSeg := make([]MessageSegment, 0, len(args))
 	for _, arg := range args {
-		switch arg.(type) {
+		switch arg := arg.(type) {
 		case Message:
 			continue
 		case MessageSegment:
-			continue
+			argsSeg = append(argsSeg, arg)
 		default:
 			argsNoSeg = append(argsNoSeg, arg)
 		}
 	}
 
+	// 将"%xx"的占位符交给Sprintf来格式化，得到的字符串只剩下"{}"占位符
 	formattedTemplate := fmt.Sprintf(tmpl, argsNoSeg...)
+
+	// 将"{}"占位符替换成消息段。
 	i := 0
-	for i < len(formattedTemplate) {
-		cur := formattedTemplate[i]
-		if cur == '{' {
-			if i+1 >= len(formattedTemplate) {
-				break
-			}
-			next := formattedTemplate[i+1]
-			if next == '{' {
-				i += 2
+	count := 0
+	for j := i; j < len(formattedTemplate)-1; {
+		if formattedTemplate[j] == '{' {
+			if formattedTemplate[j+1] == '{' {
+				j += 2
 				continue
 			}
-			if next == '}' {
-				i += 2
+			if formattedTemplate[j+1] == '}' {
+				if i != j {
+					msg.AppendText(formattedTemplate[i:j])
+				}
+				if count >= len(argsSeg) {
+					err = fmt.Errorf("too few arguments for template: %s", tmpl)
+					return
+				}
+				msg.AppendSegment(argsSeg[count])
+				j += 2
+				i = j
+				count++
 				continue
 			}
 		}
-		i += 1
+		j++
+	}
+	if i < len(formattedTemplate) {
+		msg.AppendText(formattedTemplate[i:])
+	}
+
+	if count != len(argsSeg) {
+		err = fmt.Errorf("not enough segments")
 	}
 
 	return
