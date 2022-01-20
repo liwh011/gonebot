@@ -72,33 +72,33 @@ type GroupRecallNoticeEvent struct {
 // 好友消息撤回通知
 type FriendRecallNoticeEvent struct {
 	NoticeEvent
-	UserId     int64 // 撤回者 QQ 号
-	MessageId  int64 // 消息 ID
+	UserId    int64 // 撤回者 QQ 号
+	MessageId int64 // 消息 ID
 }
 
 // 戳一戳通知
 type PokeNoticeEvent struct {
 	NoticeEvent
-	SubType string // 通知子类型，poke
-	GroupId int64  // 群号
-	UserId  int64  // 发送戳一戳的 QQ 号
+	SubType  string // 通知子类型，poke
+	GroupId  int64  // 群号
+	UserId   int64  // 发送戳一戳的 QQ 号
 	TargetId int64  // 被戳一戳的 QQ 号
 }
 
 // 运气王通知
 type LuckyKingNoticeEvent struct {
 	NoticeEvent
-	SubType string // 通知子类型，lucky_king
-	GroupId int64  // 群号
-	UserId  int64  // 发红包者的 QQ 号
+	SubType  string // 通知子类型，lucky_king
+	GroupId  int64  // 群号
+	UserId   int64  // 发红包者的 QQ 号
 	TargetId int64  // 运气王的 QQ 号
 }
 
 // 群成员荣誉变更
 type HonorNoticeEvent struct {
 	NoticeEvent
-	SubType string // 通知子类型，honor
-	GroupId int64  // 群号
-	UserId  int64  // QQ 号
+	SubType   string // 通知子类型，honor
+	GroupId   int64  // 群号
+	UserId    int64  // QQ 号
 	HonorType string // 荣誉类型，talkative、performer、emotion，分别表示龙王、群聊之火、快乐源泉
 }
