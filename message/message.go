@@ -190,7 +190,7 @@ func Format(tmpl string, args ...interface{}) (msg Message, err error) {
 	}
 
 	if count != len(argsSeg) {
-		err = fmt.Errorf("not enough segments")
+		err = fmt.Errorf("too many arguments for template: %s", tmpl)
 	}
 
 	return
