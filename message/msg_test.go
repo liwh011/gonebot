@@ -80,3 +80,29 @@ func Test_Format(t *testing.T) {
 		}
 	}
 }
+
+func Test_String(t *testing.T) {
+	testData := []struct {
+		msg    Message
+		expect string
+	}{
+		{
+			Message{AtAll(), Text("hello")},
+			"[CQ:at,qq=all]hello",
+		},
+		{
+			Message{Image("http://www.baidu.com/img/bd_logo1.png", ImageOptions().SetCache(false).SetProxy(true)), Text("hello")},
+			"[CQ:image,cache=0,proxy=1,file=http://www.baidu.com/img/bd_logo1.png]hello",
+		},
+		{
+			Message{Shake()},
+			"[CQ:shake]",
+		},
+	}
+
+	for i, data := range testData {
+		if fmt.Sprintf("%v", data.msg) != data.expect {
+			t.Errorf("%d: %v != %v", i, fmt.Sprintf("%v", data.msg), data.expect)
+		}
+	}
+}

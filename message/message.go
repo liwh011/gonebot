@@ -16,10 +16,36 @@ func (seg *MessageSegment) IsText() bool {
 	return seg.Type == "text"
 }
 
+func (seg MessageSegment) String() string {
+	if seg.IsText() {
+		return Escape(seg.Data["text"].(string), false)
+	}
+
+	if len(seg.Data) == 0 {
+		return fmt.Sprintf("[CQ:%s]", seg.Type)
+	}
+
+	params := make([]string, 0, len(seg.Data))
+	for k, v := range seg.Data {
+		vStr := fmt.Sprintf("%v", v)
+		params = append(params, fmt.Sprintf("%s=%s", k, Escape(vStr, false)))
+	}
+	return fmt.Sprintf("[CQ:%s,%s]", seg.Type, strings.Join(params, ","))
+
+}
+
 type Message []MessageSegment
 
 func (m Message) Len() int {
 	return len(m)
+}
+
+func (m Message) String() string {
+	var s string
+	for _, seg := range m {
+		s += seg.String()
+	}
+	return s
 }
 
 type t_StringOrSegment interface{}
