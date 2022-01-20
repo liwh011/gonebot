@@ -61,13 +61,19 @@ func Test_Format(t *testing.T) {
 					msg[3].IsText() && msg[3].Data["text"] == " asdsa")
 			},
 		},
+		{
+			"aa{{}}}",
+			[]interface{}{},
+			func(msg Message) bool {
+				return (len(msg) == 1 && msg[0].IsText() && msg[0].Data["text"] == "aa{}}")
+			},
+		},
 	}
 
 	for _, data := range testData {
 		msg, err := Format(data.format, data.args...)
 		if err != nil {
 			t.Errorf("Format(%q, %v) error: %v", data.format, data.args, err)
-			continue
 		}
 		if !data.expect(msg) {
 			t.Errorf("Format(%q, %v) = %v", data.format, data.args, msg)

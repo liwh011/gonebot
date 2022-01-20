@@ -2,6 +2,7 @@ package message
 
 import (
 	"fmt"
+	"strings"
 )
 
 type msgSegData map[string]interface{}
@@ -141,6 +142,12 @@ func Join(msgs ...t_StringOrMsgOrSegOrArray) (msg Message, err error) {
 	return
 }
 
+// 根据模板和参数生成消息对象。使用"{}"作为消息段的占位符。例如：
+//	Format("{}你好啊%s", At(114514), "李田所")
+//	// 返回：[{at:114514},{text:"你好啊李田所"}]
+// 如想"{}"不被解析为占位符，则使用"{{}}"。例如：
+//	Format("{{}}你好啊%s", "李田所")
+//	// 返回：[{text:"{}你好啊李田所"}]
 func Format(tmpl string, args ...interface{}) (msg Message, err error) {
 	// 将普通参数、消息段参数分离开来
 	argsNoSeg := make([]interface{}, 0, len(args))
@@ -160,17 +167,26 @@ func Format(tmpl string, args ...interface{}) (msg Message, err error) {
 	formattedTemplate := fmt.Sprintf(tmpl, argsNoSeg...)
 
 	// 将"{}"占位符替换成消息段。
+	builder := strings.Builder{}
+	builder.Grow(len(formattedTemplate))
 	i := 0
 	count := 0
-	for j := i; j < len(formattedTemplate)-1; {
+	for j := i; j < len(formattedTemplate); {
 		if formattedTemplate[j] == '{' {
-			if formattedTemplate[j+1] == '{' {
-				j += 2
+			if j+4 <= len(formattedTemplate) && formattedTemplate[j:j+4] == "{{}}" {
+				// 如果是"{{}}"，则认为是{}
+				builder.WriteString("{}")
+				j += 4
 				continue
 			}
-			if formattedTemplate[j+1] == '}' {
+			// if formattedTemplate[j+1] == '{' {
+			// 	j += 2
+			// 	continue
+			// }
+			if j+1 <= len(formattedTemplate) && formattedTemplate[j+1] == '}' {
 				if i != j {
-					msg.AppendText(formattedTemplate[i:j])
+					msg.AppendText(builder.String())
+					builder.Reset()
 				}
 				if count >= len(argsSeg) {
 					err = fmt.Errorf("too few arguments for template: %s", tmpl)
@@ -183,10 +199,13 @@ func Format(tmpl string, args ...interface{}) (msg Message, err error) {
 				continue
 			}
 		}
+		builder.WriteByte(formattedTemplate[j])
 		j++
 	}
 	if i < len(formattedTemplate) {
-		msg.AppendText(formattedTemplate[i:])
+		// msg.AppendText(formattedTemplate[i:])
+		msg.AppendText(builder.String())
+		builder.Reset()
 	}
 
 	if count != len(argsSeg) {
