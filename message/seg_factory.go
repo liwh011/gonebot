@@ -304,9 +304,9 @@ func Location(lat, lng float64, options *locationOptions) MessageSegment {
 }
 
 const (
-	MusicTypeQQ    = "qq"  // QQ 音乐
-	MusicType163   = "163" // 网易云音乐
-	MusicTypeXiami = "xm"  // 虾米音乐
+	MUSIC_TYPE_QQ    = "qq"  // QQ 音乐
+	MUSIC_TYPE_163   = "163" // 网易云音乐
+	MUSIC_TYPE_XIAMI = "xm"  // 虾米音乐
 )
 
 // 音乐分享
