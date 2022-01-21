@@ -3,6 +3,8 @@ package message
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tidwall/gjson"
 )
 
 type msgSegData map[string]interface{}
@@ -238,5 +240,21 @@ func Format(tmpl string, args ...interface{}) (msg Message, err error) {
 		err = fmt.Errorf("too many arguments for template: %s", tmpl)
 	}
 
+	return
+}
+
+func FromJsonObject(m gjson.Result) (seg MessageSegment) {
+	seg.Type = m.Get("type").String()
+	if m.Get("data").Exists() {
+		seg.Data = m.Get("data").Value().(map[string]interface{})
+	}
+	return
+}
+
+func FromJsonArray(m []gjson.Result) (msg Message) {
+	for _, m := range m {
+		seg := FromJsonObject(m)
+		msg.AppendSegment(seg)
+	}
 	return
 }
