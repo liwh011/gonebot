@@ -1,8 +1,10 @@
 package driver
 
+import "github.com/tidwall/gjson"
+
 // 对还未发送就出错的请求生成一个错误响应
-func makeErrorResponse(req request, err error) message {
-	return message{
+func makeErrorResponse(req request, err error) response {
+	return response{
 		Status:  "failed",
 		Msg:     err.Error(),
 		RetCode: -1,
@@ -10,7 +12,6 @@ func makeErrorResponse(req request, err error) message {
 	}
 }
 
-// 判断消息是否是回复
-func isReplyMessage(msg message) bool {
-	return msg.Echo.seq != 0
+func isResponse(msg gjson.Result) bool {
+	return msg.Get("status").Exists() && msg.Get("retcode").Exists()
 }

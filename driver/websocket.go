@@ -7,6 +7,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
 
 	"github.com/gorilla/websocket"
 )
@@ -14,26 +15,27 @@ import (
 type Params map[string]interface{}
 
 type request struct {
-	Action string               `json:"action"`
-	Params Params               `json:"params"`
-	Echo   struct{ seq uint64 } `json:"echo"`
+	Action string `json:"action"`
+	Params Params `json:"params"`
+	Echo   uint64 `json:"echo"`
 }
 
-type message struct {
-	Status  string                 `json:"status"` // 'ok' or 'failed'
-	Data    map[string]interface{} `json:"data"`
-	Msg     string                 `json:"msg"`     // error message
-	Wording string                 `json:"wording"` // error message in Chinese
-	RetCode int64                  `json:"retcode"` // error code, 0 for success
-	Echo    struct{ seq uint64 }   `json:"echo"`    // 回复消息的序列号，用于匹配。如果消息不是回复，则为0
+type response struct {
+	Status  string       `json:"status"` // 'ok' or 'failed'
+	Data    gjson.Result `json:"data"`
+	Msg     string       `json:"msg"`     // error message
+	Wording string       `json:"wording"` // error message in Chinese
+	RetCode int64        `json:"retcode"` // error code, 0 for success
+	Echo    uint64       `json:"echo"`    // 回复消息的序列号，用于匹配
 }
 
-type websocketClient struct {
+type WebsocketClient struct {
 	conn *websocket.Conn
 	url  string // websocket服务器地址
 
-	requestChan chan request // 发送消息通道
-	receiveChan chan message // 接收消息通道
+	requestChan  chan request  // 发送消息通道
+	responseChan chan response // 接收消息通道
+	eventChan    chan []byte
 
 	isAlive          bool // 是否连接
 	reconnectTimeout int  // 重连超时时间
@@ -46,16 +48,16 @@ type websocketClient struct {
 }
 
 type subscriber struct {
-	filterFunc func(msg message) bool
-	recvChan   chan message
+	recvChan chan []byte
 }
 
-func NewWsClient(url string, timeout int) *websocketClient {
-	return &websocketClient{
+func NewWsClient(url string, timeout int) *WebsocketClient {
+	return &WebsocketClient{
 		url:              url,
 		conn:             nil,
 		requestChan:      make(chan request, 10),
-		receiveChan:      make(chan message, 10),
+		responseChan:     make(chan response, 10),
+		eventChan:        make(chan []byte, 10),
 		isAlive:          false,
 		apiCallTimeout:   timeout,
 		reconnectTimeout: timeout,
@@ -63,7 +65,7 @@ func NewWsClient(url string, timeout int) *websocketClient {
 	}
 }
 
-func (wsc *websocketClient) connect() {
+func (wsc *WebsocketClient) connect() {
 	var err error
 
 	log.Infof("正在连接到Websocket服务器：%s", wsc.url)
@@ -78,28 +80,28 @@ func (wsc *websocketClient) connect() {
 }
 
 // 发送消息
-func (wsc *websocketClient) sendMsgThread() {
+func (wsc *WebsocketClient) sendMsgThread() {
 	for wsc.isAlive {
 		req := <-wsc.requestChan
-		req.Echo.seq = wsc.getSeqNum()
+		req.Echo = wsc.getSeqNum()
 		jsonData, err := json.Marshal(req)
 		if err != nil {
 			log.Errorf("序列化消息失败：%v。消息：%v", err, req)
-			wsc.receiveChan <- makeErrorResponse(req, err) // 直接返回错误
+			wsc.responseChan <- makeErrorResponse(req, err) // 直接返回错误
 			continue
 		}
 
 		err = wsc.conn.WriteMessage(websocket.TextMessage, jsonData)
 		if err != nil {
 			log.Errorf("发送消息到ws服务器时发生错误：%v", err)
-			wsc.receiveChan <- makeErrorResponse(req, err)
+			wsc.responseChan <- makeErrorResponse(req, err)
 			continue
 		}
 	}
 }
 
 // 读取消息
-func (wsc *websocketClient) readMsgThread() {
+func (wsc *WebsocketClient) readMsgThread() {
 	for wsc.isAlive {
 		_, msgBytes, err := wsc.conn.ReadMessage()
 		if err != nil {
@@ -109,33 +111,40 @@ func (wsc *websocketClient) readMsgThread() {
 		}
 
 		log.Debugf("从ws服务器接收到消息：%s", msgBytes)
-		var msg message
-		err = json.Unmarshal(msgBytes, &msg)
-		if err != nil {
-			log.Errorf("消息无法被解码：", err)
+
+		jsonData := gjson.ParseBytes(msgBytes)
+		if isResponse(jsonData) {
+			msg := response{
+				Status:  jsonData.Get("status").String(),
+				Data:    jsonData.Get("data"),
+				Msg:     jsonData.Get("msg").String(),
+				Wording: jsonData.Get("wording").String(),
+				RetCode: jsonData.Get("retcode").Int(),
+				Echo:    jsonData.Get("echo").Uint(),
+			}
+			wsc.responseChan <- msg
+		} else {
+			wsc.eventChan <- msgBytes
 		}
-		wsc.receiveChan <- msg
+
 	}
 }
 
 // 分发收到的消息
-func (wsc *websocketClient) dispatchMessages() {
+func (wsc *WebsocketClient) dispatchMessages() {
 	for {
-		msg := <-wsc.receiveChan
-		if isReplyMessage(msg) { // 是回复消息，则分发给对应的请求消息
-			seqChan, ok := wsc.seq2Chan.Load(msg.Echo.seq)
+		select {
+		case msg := <-wsc.responseChan:
+			seqChan, ok := wsc.seq2Chan.Load(msg.Echo)
 			if !ok {
-				log.Errorf("收到未知的序列号：%d", msg.Echo.seq)
+				log.Errorf("收到未知的序列号：%d", msg.Echo)
 				continue
 			}
-			seqChan.(chan message) <- msg
-			close(seqChan.(chan message)) // 该通道只会被使用一次，必须主动关闭通道，否则会出现死锁
+			seqChan.(chan response) <- msg
+			close(seqChan.(chan response)) // 该通道只会被使用一次，必须主动关闭通道，否则会出现死锁
 
-		} else { // 消息不是回复消息，则分发给订阅者
+		case msg := <-wsc.eventChan:
 			for _, sub := range wsc.subscribers {
-				if !sub.filterFunc(msg) {
-					continue
-				}
 				select {
 				case sub.recvChan <- msg:
 				default: // 通道已满，抛弃消息，避免阻塞
@@ -148,17 +157,16 @@ func (wsc *websocketClient) dispatchMessages() {
 }
 
 // 订阅消息，返回一个通道，可以从中读取消息
-func (wsc *websocketClient) Subscribe(filterFunc func(msg message) bool) chan message {
-	ch := make(chan message, 10)
+func (wsc *WebsocketClient) Subscribe() chan []byte {
+	ch := make(chan []byte, 10)
 	wsc.subscribers = append(wsc.subscribers, subscriber{
-		filterFunc: filterFunc,
-		recvChan:   ch,
+		recvChan: ch,
 	})
 	return ch
 }
 
 // 开启服务并重连
-func (wsc *websocketClient) Start() {
+func (wsc *WebsocketClient) Start() {
 	go wsc.dispatchMessages()
 	for {
 		if !wsc.isAlive {
@@ -171,19 +179,19 @@ func (wsc *websocketClient) Start() {
 }
 
 // 获取序号。该函数只有一个调用者，不需要加锁
-func (wsc *websocketClient) getSeqNum() uint64 {
+func (wsc *WebsocketClient) getSeqNum() uint64 {
 	wsc.seqNum++
 	return wsc.seqNum
 }
 
 // 调用API。超时时间内没有收到回复，则返回错误
-func (wsc *websocketClient) CallApi(apiName string, params Params) (rsp message, err error) {
+func (wsc *WebsocketClient) CallApi(apiName string, params Params) (rsp response, err error) {
 	req := request{
 		Action: apiName,
 		Params: params,
 	}
 
-	rspChan := make(chan message, 1)
+	rspChan := make(chan response, 1)
 	wsc.seq2Chan.Store(req.Echo, rspChan)
 	wsc.requestChan <- req
 
@@ -195,7 +203,7 @@ func (wsc *websocketClient) CallApi(apiName string, params Params) (rsp message,
 		}
 		rsp = rspData
 		if rsp.RetCode != 0 {
-			err = fmt.Errorf("调用API失败：%s", rsp.Msg)
+			err = fmt.Errorf("调用API失败：[%d %s]%s", rsp.RetCode, rsp.Msg, rsp.Wording)
 		}
 		return
 
