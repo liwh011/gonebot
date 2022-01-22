@@ -41,8 +41,9 @@ type WebsocketClient struct {
 	reconnectTimeout int  // 重连超时时间
 	apiCallTimeout   int  // 调用API超时时间
 
-	seqNum   uint64   // 消息序号
-	seq2Chan sync.Map // 消息序号到存取通道的映射
+	seqNum     uint64 // 消息序号
+	seqNumLock sync.Mutex
+	seq2Chan   sync.Map // 消息序号到存取通道的映射
 
 	subscribers []subscriber // 订阅者
 }
@@ -62,6 +63,7 @@ func NewWsClient(url string, timeout int) *WebsocketClient {
 		apiCallTimeout:   timeout,
 		reconnectTimeout: timeout,
 		seqNum:           1,
+		seqNumLock:       sync.Mutex{},
 	}
 }
 
@@ -83,7 +85,7 @@ func (wsc *WebsocketClient) connect() {
 func (wsc *WebsocketClient) sendMsgThread() {
 	for wsc.isAlive {
 		req := <-wsc.requestChan
-		req.Echo = wsc.getSeqNum()
+
 		jsonData, err := json.Marshal(req)
 		if err != nil {
 			log.Errorf("序列化消息失败：%v。消息：%v", err, req)
@@ -110,7 +112,7 @@ func (wsc *WebsocketClient) readMsgThread() {
 			break
 		}
 
-		log.Debugf("从ws服务器接收到消息：%s", msgBytes)
+		// log.Debugf("从ws服务器接收到消息：%s", msgBytes)
 
 		jsonData := gjson.ParseBytes(msgBytes)
 		if isResponse(jsonData) {
@@ -148,7 +150,7 @@ func (wsc *WebsocketClient) dispatchMessages() {
 				select {
 				case sub.recvChan <- msg:
 				default: // 通道已满，抛弃消息，避免阻塞
-					log.Errorf("订阅者通道已满，消息被抛弃：%v", msg)
+					log.Warnf("订阅者通道已满，消息被抛弃：%v", msg)
 				}
 			}
 		}
@@ -178,8 +180,10 @@ func (wsc *WebsocketClient) Start() {
 	}
 }
 
-// 获取序号。该函数只有一个调用者，不需要加锁
+// 获取序号
 func (wsc *WebsocketClient) getSeqNum() uint64 {
+	wsc.seqNumLock.Lock()
+	defer wsc.seqNumLock.Unlock()
 	wsc.seqNum++
 	return wsc.seqNum
 }
@@ -189,6 +193,7 @@ func (wsc *WebsocketClient) CallApi(apiName string, params Params) (rsp response
 	req := request{
 		Action: apiName,
 		Params: params,
+		Echo:   wsc.getSeqNum(),
 	}
 
 	rspChan := make(chan response, 1)
