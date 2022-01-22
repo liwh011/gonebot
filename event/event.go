@@ -16,8 +16,10 @@ type Event struct {
 	EventName string `json:"-"` // 事件的名称，形如：notice.group.set
 }
 
+type T_Event interface{}
+
 // 获取事件的名称，形如：notice.group.set
-func GetEventName(event interface{}) string {
+func GetEventName(event *T_Event) string {
 	// ev := reflect.ValueOf(event)
 	// type1 := ev.FieldByName("PostType").String()
 	// type2 := ""
@@ -41,25 +43,21 @@ func GetEventName(event interface{}) string {
 
 	// return fmt.Sprintf("%s.%s", type1, type2)
 
-	return reflect.ValueOf(event).Elem().FieldByName("EventName").String()
+	return GetEventField(event, "EventName").(string)
 }
 
 // 获取事件的描述，一般用于日志输出
-func GetEventDescription(event interface{}) string {
-	switch event := event.(type) {
-	case *PrivateMessageEvent:
-		return fmt.Sprintf("私聊消息#%d 来自%d %v", event.MessageId, event.UserId, event.Message)
+func GetEventDescription(event *T_Event) string {
+	switch event := (*event).(type) {
 	case PrivateMessageEvent:
-		return fmt.Sprintf("私聊消息#%d 来自%d %v", event.MessageId, event.UserId, event.Message)
-	case *GroupMessageEvent:
-		return fmt.Sprintf("群聊消息#%d 来自%d@群%d %v", event.MessageId, event.UserId, event.GroupId, event.Message)
+		return fmt.Sprintf("[私聊消息](#%d 来自%d %v): ", event.MessageId, event.UserId, event.Message)
 	case GroupMessageEvent:
-		return fmt.Sprintf("群聊消息#%d 来自%d@群%d %v", event.MessageId, event.UserId, event.GroupId, event.Message)
+		return fmt.Sprintf("[群聊消息](#%d 来自%d@群%d %v): ", event.MessageId, event.UserId, event.GroupId, event.Message)
 	}
-	return fmt.Sprintf("%T", event)
+	return fmt.Sprintf("[%s]: %+v", GetEventName(event), *event)
 }
 
-func FromJsonObject(obj gjson.Result) interface{} {
+func FromJsonObject(obj gjson.Result) *T_Event {
 	postType := obj.Get("post_type").String()
 	nextType := obj.Get(postType + "_type").String()
 	typeName := fmt.Sprintf("%s.%s", postType, nextType)
@@ -120,32 +118,33 @@ func FromJsonObject(obj gjson.Result) interface{} {
 	}
 
 	reflect.ValueOf(ev).Elem().FieldByName("EventName").SetString(fullTypeName)
+	var v T_Event = reflect.ValueOf(ev).Elem().Interface()
 
-	return ev
+	return &v
 }
 
-type EventDispatcher struct {
-	handlers map[string][]func(interface{})
-}
+// type EventDispatcher struct {
+// 	handlers map[string][]func(interface{})
+// }
 
-func NewEventDispatcher() *EventDispatcher {
-	return &EventDispatcher{
-		handlers: make(map[string][]func(interface{})),
-	}
-}
+// func NewEventDispatcher() *EventDispatcher {
+// 	return &EventDispatcher{
+// 		handlers: make(map[string][]func(interface{})),
+// 	}
+// }
 
-func (e *EventDispatcher) Register(eventName string, handler func(interface{})) {
-	if _, ok := e.handlers[eventName]; !ok {
-		e.handlers[eventName] = make([]func(interface{}), 0)
-	}
-	e.handlers[eventName] = append(e.handlers[eventName], handler)
-}
+// func (e *EventDispatcher) Register(eventName string, handler func(interface{})) {
+// 	if _, ok := e.handlers[eventName]; !ok {
+// 		e.handlers[eventName] = make([]func(interface{}), 0)
+// 	}
+// 	e.handlers[eventName] = append(e.handlers[eventName], handler)
+// }
 
-func (e *EventDispatcher) Dispatch(event interface{}) {
-	name := GetEventName(event)
-	if _, ok := e.handlers[name]; ok {
-		for _, handler := range e.handlers[name] {
-			handler(event)
-		}
-	}
-}
+// func (e *EventDispatcher) Dispatch(event interface{}) {
+// 	name := GetEventName(&event)
+// 	if _, ok := e.handlers[name]; ok {
+// 		for _, handler := range e.handlers[name] {
+// 			handler(event)
+// 		}
+// 	}
+// }
