@@ -4,11 +4,11 @@ import "testing"
 
 func Test_GetEventName(t *testing.T) {
 	testData := []struct {
-		event  T_Event
+		event  I_Event
 		expect string
 	}{
 		{
-			GroupAdminNoticeEvent{
+			&GroupAdminNoticeEvent{
 				NoticeEvent: NoticeEvent{
 					Event{
 						PostType: "notice",
@@ -20,7 +20,7 @@ func Test_GetEventName(t *testing.T) {
 			"notice.group.set",
 		},
 		{
-			GroupUploadNoticeEvent{
+			&GroupUploadNoticeEvent{
 				NoticeEvent: NoticeEvent{
 					Event{
 						PostType: "notice",
@@ -38,3 +38,13 @@ func Test_GetEventName(t *testing.T) {
 		}
 	}
 }
+
+// func Test_ttt(t *testing.T) {
+// 	e := PrivateMessageEvent{}
+// 	var a T_Event2
+// 	a = &e
+// 	var b T_MessageEvent
+// 	b = a.(T_MessageEvent)
+// 	t.Log(b.GetEventName())
+
+// }

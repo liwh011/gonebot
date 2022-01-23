@@ -1,10 +1,24 @@
 package event
 
 import (
+	// "fmt"
+
 	"fmt"
 
 	"github.com/liwh011/gonebot/message"
 )
+
+type I_MessageEvent interface {
+	GetPostType() string
+	GetEventName() string
+	GetEventDescription() string
+
+	GetMessageType() string
+	GetSessionId() string
+	GetMessage() *message.Message
+	ExtractPlainText() string
+	IsToMe() bool
+}
 
 type MessageEvent struct {
 	Event
@@ -16,11 +30,27 @@ type MessageEvent struct {
 	RawMessage  string          `json:"raw_message"`  // 原始消息内容
 	Font        int32           `json:"font"`         // 字体
 
-	toMe bool `json:"-"` // 是否与我（bot）有关（即私聊我、或群聊At我）
+	ToMe bool `json:"-"` // 是否与我（bot）有关（即私聊我、或群聊At我）
 }
 
-func (m MessageEvent) IsToMe() bool {
-	return m.toMe
+func (e *MessageEvent) GetMessageType() string {
+	return e.MessageType
+}
+
+func (e *MessageEvent) GetSessionId() string {
+	return fmt.Sprintf("%d", e.UserId)
+}
+
+func (e *MessageEvent) GetMessage() *message.Message {
+	return &e.Message
+}
+
+func (e *MessageEvent) ExtractPlainText() string {
+	return e.Message.ExtractPlainText()
+}
+
+func (e *MessageEvent) IsToMe() bool {
+	return e.ToMe
 }
 
 type MessageEventSender struct {
@@ -44,8 +74,8 @@ type PrivateMessageEvent struct {
 	Sender *MessageEventSender // 发送人信息
 }
 
-func (e PrivateMessageEvent) GetSessionId() string {
-	return fmt.Sprintf("%d", e.UserId)
+func (e *PrivateMessageEvent) GetEventDescription() string {
+	return fmt.Sprintf("[私聊消息](#%d 来自%d): %v", e.MessageId, e.UserId, e.Message)
 }
 
 type Anonymous struct {
@@ -61,6 +91,10 @@ type GroupMessageEvent struct {
 	Anonymous *Anonymous               `json:"anonymous"`
 }
 
-func (e GroupMessageEvent) GetSessionId() string {
+func (e *GroupMessageEvent) GetEventDescription() string {
+	return fmt.Sprintf("[群聊消息](#%d 来自%d@群%d): %v", e.MessageId, e.UserId, e.GroupId, e.Message)
+}
+
+func (e *GroupMessageEvent) GetSessionId() string {
 	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
 }
