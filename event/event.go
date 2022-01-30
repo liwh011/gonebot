@@ -18,6 +18,26 @@ const (
 	POST_TYPE_REQUEST = "request"
 )
 
+const (
+	EVENT_NAME_PRIVATE_MESSAGE   = "message.private"
+	EVENT_NAME_GROUP_MESSAGE     = "message.group"
+	EVENT_NAME_GROUP_UPLOAD      = "notice.group_upload"
+	EVENT_NAME_GROUP_ADMIN       = "notice.group_admin"
+	EVENT_NAME_GROUP_DECREASE    = "notice.group_decrease"
+	EVENT_NAME_GROUP_INCREASE    = "notice.group_increase"
+	EVENT_NAME_GROUP_BAN         = "notice.group_ban"
+	EVENT_NAME_FRIEND_ADD        = "notice.friend_add"
+	EVENT_NAME_GROUP_RECALL      = "notice.group_recall"
+	EVENT_NAME_FRIEND_RECALL     = "notice.friend_recall"
+	EVENT_NAME_NOTIFY_POKE       = "notice.notify.poke"
+	EVENT_NAME_NOTIFY_LUCKY_KING = "notice.notify.lucky_king"
+	EVENT_NAME_NOTIFY_HONOR      = "notice.notify.honor"
+	EVENT_NAME_REQUEST_FRIEND    = "request.friend"
+	EVENT_NAME_REQUEST_GROUP     = "request.group"
+	EVENT_NAME_META_LIFECYCLE    = "meta_event.lifecycle"
+	EVENT_NAME_META_HEARTBEAT    = "meta_event.heartbeat"
+)
+
 type I_Event interface {
 	GetPostType() string
 	GetEventName() string
