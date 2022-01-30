@@ -131,6 +131,11 @@ func (m Message) FilterByType(t string) []MessageSegment {
 
 type t_StringOrMsgOrSegOrArray interface{}
 
+func MustJoin(msgs ...t_StringOrMsgOrSegOrArray) (msg Message) {
+	ret, _ := Join(msgs...)
+	return ret
+}
+
 func Join(msgs ...t_StringOrMsgOrSegOrArray) (msg Message, err error) {
 	msg = Message{}
 	for _, m := range msgs {

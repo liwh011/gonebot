@@ -689,9 +689,11 @@ func (bot *Bot) ClearCache() error {
 	return err
 }
 
+type QuickOperationParams map[string]interface{}
+
 // 对事件执行快速操作
-func (bot *Bot) HandleQuickOperation(context interface{}, operation map[string]interface{}) error {
-	_, err := bot.CallApi("handle_quick_operation", ApiParams{
+func (bot *Bot) HandleQuickOperation(context interface{}, operation QuickOperationParams) error {
+	_, err := bot.CallApi(".handle_quick_operation", ApiParams{
 		"context":   context,
 		"operation": operation,
 	})

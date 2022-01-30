@@ -11,10 +11,19 @@ import (
 
 // type T_Event interface{}
 
+const (
+	POST_TYPE_META    = "meta_event"
+	POST_TYPE_MESSAGE = "message"
+	POST_TYPE_NOTICE  = "notice"
+	POST_TYPE_REQUEST = "request"
+)
+
 type I_Event interface {
 	GetPostType() string
 	GetEventName() string
 	GetEventDescription() string
+
+	IsMessageEvent() bool
 }
 
 type Event struct {
@@ -35,6 +44,10 @@ func (e *Event) GetEventName() string {
 
 func (e *Event) GetEventDescription() string {
 	return fmt.Sprintf("[%s]: %+v", e.EventName, *e)
+}
+
+func (e *Event) IsMessageEvent() bool {
+	return e.PostType == POST_TYPE_MESSAGE
 }
 
 func FromJsonObject(obj gjson.Result) I_Event {
