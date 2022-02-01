@@ -14,6 +14,7 @@ func (bot *Bot) CallApi(action string, params ApiParams) (*gjson.Result, error) 
 	log.Infof("正在调用接口%s", action)
 	rsp, err := bot.driver.CallApi(action, driver.Params(params))
 	if err != nil {
+		log.Errorf("调用接口%s失败: %s", action, err)
 		return nil, err
 	}
 	return &rsp.Data, nil
