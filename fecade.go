@@ -1,7 +1,10 @@
 package gonebot
 
 import (
+	"fmt"
+
 	"github.com/liwh011/gonebot/bot"
+	"github.com/liwh011/gonebot/config"
 	"github.com/liwh011/gonebot/driver"
 	"github.com/liwh011/gonebot/event"
 	"github.com/liwh011/gonebot/handler"
@@ -15,14 +18,16 @@ var (
 	handlers []*handler.EventHandler
 )
 
-func Init() {
-	ws = driver.NewWsClient("ws://127.0.0.1:6700/", 30)
-	bot_ = bot.NewBot(ws)
+func Init(cfg *config.Config) {
+	wsAddr := fmt.Sprintf("ws://%s:%d/", cfg.WsHost, cfg.WsPort)
+	ws = driver.NewWsClient(wsAddr, cfg.ApiCallTimeout)
+	bot_ = bot.NewBot(ws, cfg)
 }
 
 func Run() {
 	ch := ws.Subscribe()
 	go ws.Start()
+	bot_.Init()
 	for by := range ch {
 		data := gjson.ParseBytes(by)
 		ev := event.FromJsonObject(data)

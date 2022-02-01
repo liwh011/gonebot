@@ -61,7 +61,7 @@ func NewWsClient(url string, timeout int) *WebsocketClient {
 		eventChan:        make(chan []byte, 10),
 		isAlive:          false,
 		apiCallTimeout:   timeout,
-		reconnectTimeout: timeout,
+		reconnectTimeout: 3,
 		seqNum:           1,
 		seqNumLock:       sync.Mutex{},
 	}
