@@ -51,6 +51,7 @@ type I_Event interface {
 	GetEventDescription() string
 
 	IsMessageEvent() bool
+	IsToMe() bool
 }
 
 type Event struct {
@@ -59,6 +60,7 @@ type Event struct {
 	PostType string `json:"post_type"` // 事件的类型，message, notice, request, meta_event
 
 	EventName string `json:"-"` // 事件的名称，形如：notice.group.set
+	ToMe      bool   `json:"-"` // 是否与我（bot）有关（即私聊我、或群聊At我）
 }
 
 func (e *Event) GetPostType() string {
@@ -75,6 +77,10 @@ func (e *Event) GetEventDescription() string {
 
 func (e *Event) IsMessageEvent() bool {
 	return e.PostType == POST_TYPE_MESSAGE
+}
+
+func (e *Event) IsToMe() bool {
+	return e.ToMe
 }
 
 func FromJsonObject(obj gjson.Result) I_Event {

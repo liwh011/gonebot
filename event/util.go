@@ -2,6 +2,7 @@ package event
 
 import (
 	"reflect"
+	"strconv"
 )
 
 // // 获取事件的名称，形如：notice.group.set
@@ -56,6 +57,25 @@ func SetEventField(e I_Event, field string, value interface{}) {
 	reflect.ValueOf(e).Elem().FieldByName(field).Set(reflect.ValueOf(value))
 }
 
-// func IsMessageEvent(e I_Event) bool {
-// 	return GetEventField(e, "PostType") == "message"
-// }
+func IsToMe(event I_Event, myId int64) bool {
+	switch event := event.(type) {
+	case *PrivateMessageEvent:
+		return true
+	case *GroupMessageEvent:
+		atSegs := event.Message.FilterByType("at")
+		for _, seg := range atSegs {
+			if seg.Data["qq"].(string) == strconv.FormatInt(myId, 10) {
+				return true
+			}
+		}
+		return false
+	default:
+		if targetId, exist := GetEventField(event, "TargetId"); exist {
+			return targetId.(int64) == myId
+		}
+		if userId, exist := GetEventField(event, "UserId"); exist {
+			return userId.(int64) == myId
+		}
+	}
+	return false
+}

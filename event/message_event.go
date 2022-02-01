@@ -13,12 +13,12 @@ type I_MessageEvent interface {
 	GetPostType() string
 	GetEventName() string
 	GetEventDescription() string
+	IsToMe() bool
 
 	GetMessageType() string
 	GetSessionId() string
 	GetMessage() *message.Message
 	ExtractPlainText() string
-	IsToMe() bool
 }
 
 type MessageEvent struct {
@@ -31,7 +31,6 @@ type MessageEvent struct {
 	RawMessage  string          `json:"raw_message"`  // 原始消息内容
 	Font        int32           `json:"font"`         // 字体
 
-	ToMe bool `json:"-"` // 是否与我（bot）有关（即私聊我、或群聊At我）
 }
 
 func (e *MessageEvent) GetMessageType() string {
