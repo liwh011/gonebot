@@ -4,7 +4,7 @@ type HandleFunc func(*Context)
 
 type EventHandler struct {
 	handler       HandleFunc
-	preconditions []func(*Context) bool
+	preconditions []Condition
 	priority      int
 	block         bool
 }
@@ -33,7 +33,7 @@ func (h *EventHandler) SetHandler(handler HandleFunc) *EventHandler {
 	return h
 }
 
-func (h *EventHandler) AddPrecondition(precondition func(*Context) bool) *EventHandler {
-	h.preconditions = append(h.preconditions, precondition)
+func (h *EventHandler) AddPrecondition(precondition ...Condition) *EventHandler {
+	h.preconditions = append(h.preconditions, precondition...)
 	return h
 }
