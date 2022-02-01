@@ -75,7 +75,11 @@ type PrivateMessageEvent struct {
 }
 
 func (e *PrivateMessageEvent) GetEventDescription() string {
-	return fmt.Sprintf("[私聊消息](#%d 来自%d): %v", e.MessageId, e.UserId, e.Message)
+	msg := e.Message.String()
+	if len(msg) > 100 {
+		msg = msg[:50] + "..." + msg[len(msg)-50:]
+	}
+	return fmt.Sprintf("[私聊消息](#%d 来自%d): %v", e.MessageId, e.UserId, msg)
 }
 
 type Anonymous struct {
@@ -92,7 +96,11 @@ type GroupMessageEvent struct {
 }
 
 func (e *GroupMessageEvent) GetEventDescription() string {
-	return fmt.Sprintf("[群聊消息](#%d 来自%d@群%d): %v", e.MessageId, e.UserId, e.GroupId, e.Message)
+	msg := e.Message.String()
+	if len(msg) > 100 {
+		msg = msg[:50] + "..." + msg[len(msg)-50:]
+	}
+	return fmt.Sprintf("[群聊消息](#%d 来自%d@群%d): %v", e.MessageId, e.UserId, e.GroupId, msg)
 }
 
 func (e *GroupMessageEvent) GetSessionId() string {

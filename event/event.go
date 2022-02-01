@@ -19,6 +19,7 @@ const (
 )
 
 const (
+	EVENT_NAME_MESSAGE           = "message"
 	EVENT_NAME_PRIVATE_MESSAGE   = "message.private"
 	EVENT_NAME_GROUP_MESSAGE     = "message.group"
 	EVENT_NAME_GROUP_UPLOAD      = "notice.group_upload"
