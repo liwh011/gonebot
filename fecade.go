@@ -31,6 +31,10 @@ func Run() {
 	for by := range ch {
 		data := gjson.ParseBytes(by)
 		ev := event.FromJsonObject(data)
+		if event.IsToMe(ev, bot_.GetSelfId()) {
+			event.SetEventField(ev, "ToMe", true)
+		}
+		
 		if ev.GetPostType() == event.POST_TYPE_META {
 			// log.Debug(ev.GetEventDescription())
 		} else {

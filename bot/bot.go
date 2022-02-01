@@ -26,3 +26,7 @@ func (bot *Bot) Init() {
 	}
 	bot.selfId = info.UserId
 }
+
+func (bot *Bot) GetSelfId() int64 {
+	return bot.selfId
+}
