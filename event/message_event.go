@@ -4,6 +4,7 @@ import (
 	// "fmt"
 
 	"fmt"
+	"strings"
 
 	"github.com/liwh011/gonebot/message"
 )
@@ -76,9 +77,11 @@ type PrivateMessageEvent struct {
 
 func (e *PrivateMessageEvent) GetEventDescription() string {
 	msg := e.Message.String()
-	if len(msg) > 100 {
-		msg = msg[:50] + "..." + msg[len(msg)-50:]
+	msgRune := []rune(msg)
+	if len(msgRune) > 100 {
+		msg = fmt.Sprintf("%s...(省略%d个字符)...%s", string(msgRune[:50]), len(msgRune)-100, string(msgRune[len(msgRune)-50:]))
 	}
+	msg = strings.Replace(msg, "\n", "\\n", -1)
 	return fmt.Sprintf("[私聊消息](#%d 来自%d): %v", e.MessageId, e.UserId, msg)
 }
 
@@ -97,9 +100,11 @@ type GroupMessageEvent struct {
 
 func (e *GroupMessageEvent) GetEventDescription() string {
 	msg := e.Message.String()
-	if len(msg) > 100 {
-		msg = msg[:50] + "..." + msg[len(msg)-50:]
+	msgRune := []rune(msg)
+	if len(msgRune) > 100 {
+		msg = fmt.Sprintf("%s...(省略%d个字符)...%s", string(msgRune[:50]), len(msgRune)-100, string(msgRune[len(msgRune)-50:]))
 	}
+	msg = strings.Replace(msg, "\n", "\\n", -1)
 	return fmt.Sprintf("[群聊消息](#%d 来自%d@群%d): %v", e.MessageId, e.UserId, e.GroupId, msg)
 }
 
