@@ -10,9 +10,9 @@ import (
 
 type Condition func(*Context) bool
 
-func EventType(t string) Condition {
+func EventType(t event.EventName) Condition {
 	return func(ctx *Context) bool {
-		return strings.HasPrefix(ctx.Event.GetEventName(), t)
+		return strings.HasPrefix(ctx.Event.GetEventName(), string(t))
 	}
 }
 
