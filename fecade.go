@@ -18,22 +18,28 @@ var (
 	handlers []*handler.EventHandler
 )
 
-func Init(cfg *config.Config) {
+// func Init(cfg *config.Config) {
+// 	wsAddr := fmt.Sprintf("ws://%s:%d/", cfg.WsHost, cfg.WsPort)
+// 	ws = driver.NewWsClient(wsAddr, cfg.ApiCallTimeout)
+// 	bot_ = bot.NewBot(ws, cfg)
+// }
+
+func Run(cfg *config.Config) {
+	// 启动连接到WebSocket服务器
 	wsAddr := fmt.Sprintf("ws://%s:%d/", cfg.WsHost, cfg.WsPort)
 	ws = driver.NewWsClient(wsAddr, cfg.ApiCallTimeout)
-	bot_ = bot.NewBot(ws, cfg)
-}
-
-func Run() {
-	ch := ws.Subscribe()
 	go ws.Start()
+
+	// 初始化Bot
+	bot_ = bot.NewBot(ws, cfg)
 	bot_.Init()
+
+	// 处理消息
+	ch := ws.Subscribe()
 	for by := range ch {
+		// 生成事件
 		data := gjson.ParseBytes(by)
 		ev := event.FromJsonObject(data)
-		if event.IsToMe(ev, bot_.GetSelfId()) {
-			event.SetEventField(ev, "ToMe", true)
-		}
 
 		if ev.GetPostType() == event.POST_TYPE_META {
 			// log.Debug(ev.GetEventDescription())
@@ -41,11 +47,14 @@ func Run() {
 			log.Info(ev.GetEventDescription())
 		}
 
+		// 打包成Context
 		ctx := handler.Context{
 			Event: ev,
 			Bot:   bot_,
 			State: make(map[string]interface{}),
 		}
+
+		// 分发给handlers
 		// sort.Slice(handlers, func(i, j int) bool {
 		// 	return handlers[i].Priority > handlers[j].Priority
 		// })
