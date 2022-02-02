@@ -34,7 +34,7 @@ func Run() {
 		if event.IsToMe(ev, bot_.GetSelfId()) {
 			event.SetEventField(ev, "ToMe", true)
 		}
-		
+
 		if ev.GetPostType() == event.POST_TYPE_META {
 			// log.Debug(ev.GetEventDescription())
 		} else {
@@ -44,6 +44,7 @@ func Run() {
 		ctx := handler.Context{
 			Event: ev,
 			Bot:   bot_,
+			State: make(map[string]interface{}),
 		}
 		// sort.Slice(handlers, func(i, j int) bool {
 		// 	return handlers[i].Priority > handlers[j].Priority
