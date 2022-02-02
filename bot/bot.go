@@ -20,6 +20,7 @@ func NewBot(d *driver.WebsocketClient, cfg *config.Config) *Bot {
 }
 
 func (bot *Bot) Init() {
+	// 获取bot自己的qq号
 	info, err := bot.GetLoginInfo()
 	if err != nil {
 		panic(err)

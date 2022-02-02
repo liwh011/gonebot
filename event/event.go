@@ -3,13 +3,9 @@ package event
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
-	// "github.com/liwh011/gonebot/message"
 	"github.com/tidwall/gjson"
 )
-
-// type T_Event interface{}
 
 const (
 	POST_TYPE_META    = "meta_event"
@@ -60,17 +56,20 @@ type Event struct {
 	PostType string `json:"post_type"` // 事件的类型，message, notice, request, meta_event
 
 	EventName string `json:"-"` // 事件的名称，形如：notice.group.set
-	ToMe      bool   `json:"-"` // 是否与我（bot）有关（即私聊我、或群聊At我）
+	ToMe      bool   `json:"-"` // 是否与我（bot）有关（即私聊我、或群聊At我、我被踢了、等等）
 }
 
+// 获取事件的上报类型，有message, notice, request, meta_event
 func (e *Event) GetPostType() string {
 	return e.PostType
 }
 
+// 获取事件的名称，形如：notice.group.set
 func (e *Event) GetEventName() string {
 	return e.EventName
 }
 
+// 获取事件的描述，一般用于日志输出
 func (e *Event) GetEventDescription() string {
 	return fmt.Sprintf("[%s]: %+v", e.EventName, *e)
 }
@@ -83,10 +82,13 @@ func (e *Event) IsToMe() bool {
 	return e.ToMe
 }
 
+// 从JSON对象中生成Event对象（指针）
 func FromJsonObject(obj gjson.Result) I_Event {
+	// 大多数事件的事件类型有3级，而第三级的subtype通常不影响事件的结构
+	// 所以下面只用了第一级和第二级类型来构造事件对象
 	postType := obj.Get("post_type").String()
 	nextType := obj.Get(postType + "_type").String()
-	typeName := fmt.Sprintf("%s.%s", postType, nextType)
+	typeName := fmt.Sprintf("%s.%s", postType, nextType) // 前两段类型
 
 	subType := ""
 	fullTypeName := typeName
@@ -138,13 +140,17 @@ func FromJsonObject(obj gjson.Result) I_Event {
 		panic(fmt.Sprintf("unknown event type: %s", typeName))
 	}
 
+	// 借助json库将JSON对象中的字段赋值给Event对象，懒得自个写反射了
 	err := json.Unmarshal([]byte(obj.Raw), ev)
 	if err != nil {
 		panic(err)
 	}
 
-	reflect.ValueOf(ev).Elem().FieldByName("EventName").SetString(fullTypeName)
-	// var v T_Event = reflect.ValueOf(ev).Elem().Interface()
+	// 设置事件的名称
+	SetEventField(ev, "EventName", fullTypeName)
+	if isToMe(ev) {
+		SetEventField(ev, "ToMe", true)
+	}
 
 	return ev
 }

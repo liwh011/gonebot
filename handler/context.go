@@ -8,9 +8,9 @@ import (
 )
 
 type Context struct {
-	Event event.I_Event
-	State State
-	Bot   *bot.Bot
+	Event event.I_Event // 事件（实际上是个指针）
+	State State         // 存放一些提取出来的数据
+	Bot   *bot.Bot      // Bot实例
 }
 
 // 回复
@@ -27,6 +27,11 @@ func (ctx *Context) Reply(msg message.Message) {
 	if err != nil {
 		log.Errorf("回复消息失败：%s", err.Error())
 	}
+}
+
+// 回复文字
+func (ctx *Context) ReplyText(text string) {
+	ctx.ReplyRaw(message.MustJoin(text))
 }
 
 // 回复，并对消息存在的CQ码进行转义

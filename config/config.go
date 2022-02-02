@@ -7,12 +7,13 @@ import (
 )
 
 type Config struct {
-	WsHost         string `json:"ws_host"`
-	WsPort         int    `json:"ws_port"`
-	ApiCallTimeout int    `json:"api_call_timeout"`
-	AccessToken    string `json:"access_token"`
+	WsHost         string `json:"ws_host"`          // WebSocket服务器地址
+	WsPort         int    `json:"ws_port"`          // WebSocket服务器端口
+	ApiCallTimeout int    `json:"api_call_timeout"` // API调用超时时间
+	AccessToken    string `json:"access_token"`     // 访问令牌，应与WS服务器设定的一致
 }
 
+// 载入配置文件
 func LoadConfig(path string) *Config {
 	jsonFile, err := os.Open(path)
 	if err != nil {

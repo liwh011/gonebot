@@ -9,6 +9,7 @@ func boolToInt01(b bool) int {
 	return 0
 }
 
+// 转义CQ码
 func Escape(s string, escapeComma bool) (res string) {
 	res = strings.Replace(s, "&", "&amp;", -1)
 	res = strings.Replace(res, "[", "&#91;", -1)
@@ -19,6 +20,7 @@ func Escape(s string, escapeComma bool) (res string) {
 	return res
 }
 
+// 反转义CQ码
 func Unescape(s string) (res string) {
 	res = strings.Replace(s, "&#44;", ",", -1)
 	res = strings.Replace(res, "&#91;", "[", -1)
