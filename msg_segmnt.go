@@ -1,6 +1,39 @@
-package message
+package gonebot
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+type msgSegData map[string]interface{}
+
+type MessageSegment struct {
+	Type string     `json:"type"`
+	Data msgSegData `json:"data"`
+}
+
+func (seg *MessageSegment) IsText() bool {
+	return seg.Type == "text"
+}
+
+func (seg MessageSegment) String() string {
+	if seg.IsText() {
+		return Escape(seg.Data["text"].(string), false)
+	}
+
+	if len(seg.Data) == 0 {
+		return fmt.Sprintf("[CQ:%s]", seg.Type)
+	}
+
+	params := make([]string, 0, len(seg.Data))
+	for k, v := range seg.Data {
+		vStr := fmt.Sprintf("%v", v)
+		params = append(params, fmt.Sprintf("%s=%s", k, Escape(vStr, false)))
+	}
+	return fmt.Sprintf("[CQ:%s,%s]", seg.Type, strings.Join(params, ","))
+
+}
 
 // 纯文本
 func Text(text string) MessageSegment {
@@ -206,7 +239,7 @@ func Poke(type_, id int) MessageSegment {
 }
 
 // 匿名发消息
-func Anonymous(ignore bool) MessageSegment {
+func AnonymousSegment(ignore bool) MessageSegment {
 	return MessageSegment{
 		Type: "anonymous",
 		Data: msgSegData{

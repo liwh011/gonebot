@@ -1,4 +1,4 @@
-package message
+package gonebot
 
 import (
 	"fmt"
@@ -71,7 +71,7 @@ func Test_Format(t *testing.T) {
 	}
 
 	for _, data := range testData {
-		msg, err := Format(data.format, data.args...)
+		msg, err := MsgPrintf(data.format, data.args...)
 		if err != nil {
 			t.Errorf("Format(%q, %v) error: %v", data.format, data.args, err)
 		}

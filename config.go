@@ -1,4 +1,4 @@
-package config
+package gonebot
 
 import (
 	"encoding/json"

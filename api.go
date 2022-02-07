@@ -1,18 +1,15 @@
-package bot
+package gonebot
 
 import (
-	"github.com/liwh011/gonebot/driver"
-	"github.com/liwh011/gonebot/event"
-	"github.com/liwh011/gonebot/message"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
-type ApiParams driver.Params
+type ApiParams wsRequestParams
 
 func (bot *Bot) CallApi(action string, params ApiParams) (*gjson.Result, error) {
 	log.Infof("正在调用接口%s", action)
-	rsp, err := bot.driver.CallApi(action, driver.Params(params))
+	rsp, err := bot.driver.CallApi(action, wsRequestParams(params))
 	if err != nil {
 		log.Errorf("调用接口%s失败: %s", action, err)
 		return nil, err
@@ -21,7 +18,7 @@ func (bot *Bot) CallApi(action string, params ApiParams) (*gjson.Result, error) 
 }
 
 // 发送私聊消息
-func (bot *Bot) SendPrivateMsg(userId int64, message message.Message, autoEscape bool) (int32, error) {
+func (bot *Bot) SendPrivateMsg(userId int64, message Message, autoEscape bool) (int32, error) {
 	data, err := bot.CallApi("send_private_msg", ApiParams{
 		"user_id":     userId,
 		"message":     message.String(),
@@ -35,7 +32,7 @@ func (bot *Bot) SendPrivateMsg(userId int64, message message.Message, autoEscape
 }
 
 // 发送群消息
-func (bot *Bot) SendGroupMsg(groupId int64, message message.Message, autoEscape bool) (int32, error) {
+func (bot *Bot) SendGroupMsg(groupId int64, message Message, autoEscape bool) (int32, error) {
 	data, err := bot.CallApi("send_group_msg", ApiParams{
 		"group_id":    groupId,
 		"message":     message.String(),
@@ -49,7 +46,7 @@ func (bot *Bot) SendGroupMsg(groupId int64, message message.Message, autoEscape 
 }
 
 // 发送消息
-func (bot *Bot) SendMsg(messageType string, userId, groupId int64, message message.Message, autoEscape bool) (int32, error) {
+func (bot *Bot) SendMsg(messageType string, userId, groupId int64, message Message, autoEscape bool) (int32, error) {
 	params := ApiParams{
 		"message_type": messageType,
 		"message":      message.String(),
@@ -90,16 +87,16 @@ type ApiResponse_GetMsg struct {
 	MessageType   string
 	MessageId     int32
 	RealId        int32
-	privateSender *event.MessageEventSender
-	groupSender   *event.GroupMessageEventSender
-	Message       message.Message
+	privateSender *MessageEventSender
+	groupSender   *GroupMessageEventSender
+	Message       Message
 }
 
-func (r *ApiResponse_GetMsg) GetPrivateSender() *event.MessageEventSender {
+func (r *ApiResponse_GetMsg) GetPrivateSender() *MessageEventSender {
 	return r.privateSender
 }
 
-func (r *ApiResponse_GetMsg) GetGroupSender() *event.GroupMessageEventSender {
+func (r *ApiResponse_GetMsg) GetGroupSender() *GroupMessageEventSender {
 	return r.groupSender
 }
 
@@ -117,9 +114,9 @@ func (bot *Bot) GetMsg(messageId int32) (*ApiResponse_GetMsg, error) {
 		MessageType: data.Get("message_type").String(),
 		MessageId:   int32(data.Get("message_id").Int()),
 		RealId:      int32(data.Get("real_id").Int()),
-		Message:     message.FromJsonArray(data.Get("message").Array()),
+		Message:     convertJsonArrayToMessage(data.Get("message").Array()),
 	}
-	sender := event.MessageEventSender{
+	sender := MessageEventSender{
 		UserId:   data.Get("user_id").Int(),
 		Nickname: data.Get("nickname").String(),
 		Sex:      data.Get("sex").String(),
@@ -129,7 +126,7 @@ func (bot *Bot) GetMsg(messageId int32) (*ApiResponse_GetMsg, error) {
 	case "private":
 		rsp.privateSender = &sender
 	case "group":
-		gsender := event.GroupMessageEventSender{
+		gsender := GroupMessageEventSender{
 			MessageEventSender: sender,
 			Card:               data.Get("card").String(),
 			Area:               data.Get("area").String(),
@@ -145,14 +142,14 @@ func (bot *Bot) GetMsg(messageId int32) (*ApiResponse_GetMsg, error) {
 }
 
 // 获取合并转发消息
-func (bot *Bot) GetForwardMsg(messageId int32) (*message.Message, error) {
+func (bot *Bot) GetForwardMsg(messageId int32) (*Message, error) {
 	data, err := bot.CallApi("get_forward_msg", ApiParams{
 		"message_id": messageId,
 	})
 	if err != nil {
 		return nil, err
 	}
-	ret := message.FromJsonArray(data.Get("message").Array())
+	ret := convertJsonArrayToMessage(data.Get("message").Array())
 	return &ret, nil
 }
 
@@ -186,7 +183,7 @@ func (bot *Bot) SetGroupBan(groupId int64, userId int64, duration int) error {
 }
 
 // 群组匿名用户禁言
-func (bot *Bot) SetGroupAnonymousBan(groupId int64, anonymous *event.Anonymous, anonymousFlag string, duration int) error {
+func (bot *Bot) SetGroupAnonymousBan(groupId int64, anonymous *Anonymous, anonymousFlag string, duration int) error {
 	params := ApiParams{
 		"group_id": groupId,
 		"duration": duration,
@@ -690,10 +687,10 @@ func (bot *Bot) ClearCache() error {
 	return err
 }
 
-type QuickOperationParams map[string]interface{}
+type quickOperationParams map[string]interface{}
 
 // 对事件执行快速操作
-func (bot *Bot) HandleQuickOperation(context interface{}, operation QuickOperationParams) error {
+func (bot *Bot) handleQuickOperation(context interface{}, operation quickOperationParams) error {
 	_, err := bot.CallApi(".handle_quick_operation", ApiParams{
 		"context":   context,
 		"operation": operation,

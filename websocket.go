@@ -1,4 +1,5 @@
-package driver
+package gonebot
+
 
 import (
 	"encoding/json"
@@ -12,12 +13,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type Params map[string]interface{}
+type wsRequestParams map[string]interface{}
 
 type request struct {
-	Action string `json:"action"`
-	Params Params `json:"params"`
-	Echo   uint64 `json:"echo"`
+	Action string          `json:"action"`
+	Params wsRequestParams `json:"params"`
+	Echo   uint64          `json:"echo"`
 }
 
 type response struct {
@@ -52,7 +53,7 @@ type subscriber struct {
 	recvChan chan []byte
 }
 
-func NewWsClient(url string, timeout int) *WebsocketClient {
+func NewWebsocketClient(url string, timeout int) *WebsocketClient {
 	return &WebsocketClient{
 		url:              url,
 		conn:             nil,
@@ -115,7 +116,7 @@ func (wsc *WebsocketClient) readMsgThread() {
 		// log.Debugf("从ws服务器接收到消息：%s", msgBytes)
 
 		jsonData := gjson.ParseBytes(msgBytes)
-		if isResponse(jsonData) {
+		if isApiResponse(jsonData) {
 			msg := response{
 				Status:  jsonData.Get("status").String(),
 				Data:    jsonData.Get("data"),
@@ -189,7 +190,7 @@ func (wsc *WebsocketClient) getSeqNum() uint64 {
 }
 
 // 调用API。超时时间内没有收到回复，则返回错误
-func (wsc *WebsocketClient) CallApi(apiName string, params Params) (rsp response, err error) {
+func (wsc *WebsocketClient) CallApi(apiName string, params wsRequestParams) (rsp response, err error) {
 	req := request{
 		Action: apiName,
 		Params: params,
@@ -201,11 +202,7 @@ func (wsc *WebsocketClient) CallApi(apiName string, params Params) (rsp response
 	wsc.requestChan <- req
 
 	select {
-	case rspData, ok := <-rspChan:
-		if !ok {
-			err = fmt.Errorf("rspChan被意外关闭")
-			return
-		}
+	case rspData := <-rspChan:
 		rsp = rspData
 		if rsp.RetCode != 0 {
 			err = fmt.Errorf("调用API失败：[%d %s]%s", rsp.RetCode, rsp.Msg, rsp.Wording)
@@ -216,4 +213,18 @@ func (wsc *WebsocketClient) CallApi(apiName string, params Params) (rsp response
 		err = fmt.Errorf("调用API超时（%d秒）", wsc.apiCallTimeout)
 		return
 	}
+}
+
+// 对还未发送就出错的请求生成一个错误响应
+func makeErrorResponse(req request, err error) response {
+	return response{
+		Status:  "failed",
+		Msg:     err.Error(),
+		RetCode: -1,
+		Echo:    req.Echo,
+	}
+}
+
+func isApiResponse(msg gjson.Result) bool {
+	return msg.Get("status").Exists() && msg.Get("retcode").Exists()
 }

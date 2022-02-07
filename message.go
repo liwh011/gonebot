@@ -1,4 +1,4 @@
-package message
+package gonebot
 
 import (
 	"fmt"
@@ -6,35 +6,6 @@ import (
 
 	"github.com/tidwall/gjson"
 )
-
-type msgSegData map[string]interface{}
-
-type MessageSegment struct {
-	Type string     `json:"type"`
-	Data msgSegData `json:"data"`
-}
-
-func (seg *MessageSegment) IsText() bool {
-	return seg.Type == "text"
-}
-
-func (seg MessageSegment) String() string {
-	if seg.IsText() {
-		return Escape(seg.Data["text"].(string), false)
-	}
-
-	if len(seg.Data) == 0 {
-		return fmt.Sprintf("[CQ:%s]", seg.Type)
-	}
-
-	params := make([]string, 0, len(seg.Data))
-	for k, v := range seg.Data {
-		vStr := fmt.Sprintf("%v", v)
-		params = append(params, fmt.Sprintf("%s=%s", k, Escape(vStr, false)))
-	}
-	return fmt.Sprintf("[CQ:%s,%s]", seg.Type, strings.Join(params, ","))
-
-}
 
 type Message []MessageSegment
 
@@ -53,14 +24,14 @@ func (m Message) String() string {
 type t_StringOrSegment interface{}
 
 // 添加一个消息段（或字符串）到消息数组末尾。泛型版本的AppendXXXX
-func (m *Message) Append(t t_StringOrSegment) (err error) {
+func (m *Message) Append(t t_StringOrSegment) {
 	switch t := t.(type) {
 	case string:
 		m.AppendText(t)
 	case MessageSegment:
 		m.AppendSegment(t)
 	default:
-		err = fmt.Errorf("unknown type: %T", t)
+		m.AppendText(fmt.Sprintf("%v", t))
 	}
 	return
 }
@@ -110,33 +81,23 @@ func (m Message) ExtractPlainText() (text string) {
 	return
 }
 
-func (m Message) FilterByType(t string) []MessageSegment {
+func (m Message) FilterByType(segmentType string) []MessageSegment {
 	segs := make([]MessageSegment, 0)
 	for _, seg := range m {
-		if seg.Type == t {
+		if seg.Type == segmentType {
 			segs = append(segs, seg)
 		}
 	}
 	return segs
 }
 
-// func (m Message) MarshalJSON() ([]byte, error) {
-// 	return json.Marshal(m.segs)
-// }
+// type t_StringOrMsgOrSegOrArray interface{}
 
-// func (m *Message) UnmarshalJSON(data []byte) (err error) {
-// 	err = json.Unmarshal(data, &m.segs)
-// 	return
-// }
-
-type t_StringOrMsgOrSegOrArray interface{}
-
-func MustJoin(msgs ...t_StringOrMsgOrSegOrArray) (msg Message) {
-	ret, _ := Join(msgs...)
-	return ret
-}
-
-func Join(msgs ...t_StringOrMsgOrSegOrArray) (msg Message, err error) {
+// 将这些参数转换成一个Message
+//
+// 参数类型限制为string、Message、MessageSegment、[]MessageSegment，
+// 非上述类型的参数将被转换成一个Text消息段
+func MsgPrint(msgs ...interface{}) (msg Message) {
 	msg = Message{}
 	for _, m := range msgs {
 		switch m := m.(type) {
@@ -164,11 +125,11 @@ func Join(msgs ...t_StringOrMsgOrSegOrArray) (msg Message, err error) {
 
 		case []interface{}:
 			for _, m := range m {
-				err = msg.Append(m)
+				msg.Append(m)
 			}
 
 		default:
-			err = fmt.Errorf("unknown type: %T", m)
+			msg.AppendText(fmt.Sprintf("%v", m))
 		}
 	}
 
@@ -181,7 +142,7 @@ func Join(msgs ...t_StringOrMsgOrSegOrArray) (msg Message, err error) {
 // 如想"{}"不被解析为占位符，则使用"{{}}"。例如：
 //	Format("{{}}你好啊%s", "李田所")
 //	// 返回：[{text:"{}你好啊李田所"}]
-func Format(tmpl string, args ...interface{}) (msg Message, err error) {
+func MsgPrintf(tmpl string, args ...interface{}) (msg Message, err error) {
 	// 将普通参数、消息段参数分离开来
 	argsNoSeg := make([]interface{}, 0, len(args))
 	argsSeg := make([]MessageSegment, 0, len(args))
@@ -248,7 +209,7 @@ func Format(tmpl string, args ...interface{}) (msg Message, err error) {
 	return
 }
 
-func FromJsonObject(m gjson.Result) (seg MessageSegment) {
+func convertJsonObjectToMessageSegment(m gjson.Result) (seg MessageSegment) {
 	seg.Type = m.Get("type").String()
 	if m.Get("data").Exists() {
 		seg.Data = m.Get("data").Value().(map[string]interface{})
@@ -256,9 +217,9 @@ func FromJsonObject(m gjson.Result) (seg MessageSegment) {
 	return
 }
 
-func FromJsonArray(m []gjson.Result) (msg Message) {
+func convertJsonArrayToMessage(m []gjson.Result) (msg Message) {
 	for _, m := range m {
-		seg := FromJsonObject(m)
+		seg := convertJsonObjectToMessageSegment(m)
 		msg.AppendSegment(seg)
 	}
 	return

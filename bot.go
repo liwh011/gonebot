@@ -1,18 +1,13 @@
-package bot
-
-import (
-	"github.com/liwh011/gonebot/config"
-	"github.com/liwh011/gonebot/driver"
-)
+package gonebot
 
 type Bot struct {
-	driver *driver.WebsocketClient
+	driver *WebsocketClient
 
 	selfId      int64
 	accessToken string
 }
 
-func NewBot(d *driver.WebsocketClient, cfg *config.Config) *Bot {
+func NewBot(d *WebsocketClient, cfg *Config) *Bot {
 	bot := &Bot{}
 	bot.driver = d
 	bot.accessToken = cfg.AccessToken
