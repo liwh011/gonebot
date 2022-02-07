@@ -33,7 +33,6 @@ func (m *Message) Append(t t_StringOrSegment) {
 	default:
 		m.AppendText(fmt.Sprintf("%v", t))
 	}
-	return
 }
 
 // 添加一个消息段到消息数组末尾
