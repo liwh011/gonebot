@@ -77,6 +77,7 @@ func (m Message) ExtractPlainText() (text string) {
 			text += seg.Data["text"].(string)
 		}
 	}
+	text = strings.TrimSpace(text)
 	return
 }
 
