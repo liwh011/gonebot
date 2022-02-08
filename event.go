@@ -18,33 +18,34 @@ const (
 type EventName string
 
 const (
-	EVENT_NAME_MESSAGE           EventName = "message"
-	EVENT_NAME_PRIVATE_MESSAGE   EventName = "message.private"
-	EVENT_NAME_GROUP_MESSAGE     EventName = "message.group"
-	EVENT_NAME_NOTICE            EventName = "notice"
-	EVENT_NAME_GROUP_UPLOAD      EventName = "notice.group_upload"
-	EVENT_NAME_GROUP_ADMIN       EventName = "notice.group_admin"
-	EVENT_NAME_GROUP_DECREASE    EventName = "notice.group_decrease"
-	EVENT_NAME_GROUP_INCREASE    EventName = "notice.group_increase"
-	EVENT_NAME_GROUP_BAN         EventName = "notice.group_ban"
-	EVENT_NAME_FRIEND_ADD        EventName = "notice.friend_add"
-	EVENT_NAME_GROUP_RECALL      EventName = "notice.group_recall"
-	EVENT_NAME_FRIEND_RECALL     EventName = "notice.friend_recall"
-	EVENT_NAME_NOTIFY            EventName = "notice.notify"
-	EVENT_NAME_NOTIFY_POKE       EventName = "notice.notify.poke"
-	EVENT_NAME_NOTIFY_LUCKY_KING EventName = "notice.notify.lucky_king"
-	EVENT_NAME_NOTIFY_HONOR      EventName = "notice.notify.honor"
-	EVENT_NAME_REQUEST           EventName = "request"
-	EVENT_NAME_REQUEST_FRIEND    EventName = "request.friend"
-	EVENT_NAME_REQUEST_GROUP     EventName = "request.group"
-	EVENT_NAME_META              EventName = "meta_event"
-	EVENT_NAME_META_LIFECYCLE    EventName = "meta_event.lifecycle"
-	EVENT_NAME_META_HEARTBEAT    EventName = "meta_event.heartbeat"
+	EVENTNAME_ALL               EventName = "all"
+	EVENTNAME_MESSAGE           EventName = "message"
+	EVENTNAME_PRIVATE_MESSAGE   EventName = "message.private"
+	EVENTNAME_GROUP_MESSAGE     EventName = "message.group"
+	EVENTNAME_NOTICE            EventName = "notice"
+	EVENTNAME_GROUP_UPLOAD      EventName = "notice.group_upload"
+	EVENTNAME_GROUP_ADMIN       EventName = "notice.group_admin"
+	EVENTNAME_GROUP_DECREASE    EventName = "notice.group_decrease"
+	EVENTNAME_GROUP_INCREASE    EventName = "notice.group_increase"
+	EVENTNAME_GROUP_BAN         EventName = "notice.group_ban"
+	EVENTNAME_FRIEND_ADD        EventName = "notice.friend_add"
+	EVENTNAME_GROUP_RECALL      EventName = "notice.group_recall"
+	EVENTNAME_FRIEND_RECALL     EventName = "notice.friend_recall"
+	EVENTNAME_NOTIFY            EventName = "notice.notify"
+	EVENTNAME_NOTIFY_POKE       EventName = "notice.notify.poke"
+	EVENTNAME_NOTIFY_LUCKY_KING EventName = "notice.notify.lucky_king"
+	EVENTNAME_NOTIFY_HONOR      EventName = "notice.notify.honor"
+	EVENTNAME_REQUEST           EventName = "request"
+	EVENTNAME_REQUEST_FRIEND    EventName = "request.friend"
+	EVENTNAME_REQUEST_GROUP     EventName = "request.group"
+	EVENTNAME_META              EventName = "meta_event"
+	EVENTNAME_META_LIFECYCLE    EventName = "meta_event.lifecycle"
+	EVENTNAME_META_HEARTBEAT    EventName = "meta_event.heartbeat"
 )
 
 type I_Event interface {
 	GetPostType() string
-	GetEventName() string
+	GetEventName() EventName
 	GetEventDescription() string
 
 	IsMessageEvent() bool
@@ -56,8 +57,8 @@ type Event struct {
 	SelfId   int64  `json:"self_id"`   // 收到事件的机器人的QQ号
 	PostType string `json:"post_type"` // 事件的类型，message, notice, request, meta_event
 
-	EventName string `json:"-"` // 事件的名称，形如：notice.group.set
-	ToMe      bool   `json:"-"` // 是否与我（bot）有关（即私聊我、或群聊At我、我被踢了、等等）
+	EventName EventName `json:"-"` // 事件的名称，形如：notice.group.set
+	ToMe      bool      `json:"-"` // 是否与我（bot）有关（即私聊我、或群聊At我、我被踢了、等等）
 }
 
 // 获取事件的上报类型，有message, notice, request, meta_event
@@ -66,7 +67,7 @@ func (e *Event) GetPostType() string {
 }
 
 // 获取事件的名称，形如：notice.group.set
-func (e *Event) GetEventName() string {
+func (e *Event) GetEventName() EventName {
 	return e.EventName
 }
 
@@ -148,7 +149,7 @@ func convertJsonObjectToEvent(obj gjson.Result) I_Event {
 	}
 
 	// 设置事件的名称
-	setEventField(ev, "EventName", fullTypeName)
+	setEventField(ev, "EventName", EventName(fullTypeName))
 	if isEventRelativeToBot(ev) {
 		setEventField(ev, "ToMe", true)
 	}
@@ -158,7 +159,7 @@ func convertJsonObjectToEvent(obj gjson.Result) I_Event {
 
 type I_MessageEvent interface {
 	GetPostType() string
-	GetEventName() string
+	GetEventName() EventName
 	GetEventDescription() string
 	IsToMe() bool
 
@@ -170,13 +171,13 @@ type I_MessageEvent interface {
 
 type MessageEvent struct {
 	Event
-	MessageType string          `json:"message_type"` // 消息类型，group, private
-	SubType     string          `json:"sub_type"`     // 消息子类型，friend, group, other
-	MessageId   int32           `json:"message_id"`   // 消息ID
-	UserId      int64           `json:"user_id"`      // 消息发送者的QQ号
+	MessageType string  `json:"message_type"` // 消息类型，group, private
+	SubType     string  `json:"sub_type"`     // 消息子类型，friend, group, other
+	MessageId   int32   `json:"message_id"`   // 消息ID
+	UserId      int64   `json:"user_id"`      // 消息发送者的QQ号
 	Message     Message `json:"message"`      // 消息内容
-	RawMessage  string          `json:"raw_message"`  // 原始消息内容
-	Font        int32           `json:"font"`         // 字体
+	RawMessage  string  `json:"raw_message"`  // 原始消息内容
+	Font        int32   `json:"font"`         // 字体
 
 }
 
