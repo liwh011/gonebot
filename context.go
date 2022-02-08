@@ -7,9 +7,17 @@ import (
 )
 
 type Context struct {
-	Event I_Event // 事件（实际上是个指针）
-	Keys  State   // 存放一些提取出来的数据
-	Bot   *Bot    // Bot实例
+	Event I_Event                // 事件（实际上是个指针）
+	Keys  map[string]interface{} // 存放一些提取出来的数据
+	Bot   *Bot                   // Bot实例
+}
+
+func newContext(event I_Event, bot *Bot) *Context {
+	return &Context{
+		Event: event,
+		Keys:  make(map[string]interface{}),
+		Bot:   bot,
+	}
 }
 
 // ===================
@@ -42,7 +50,7 @@ func (ctx *Context) ReplyMsg(msg Message) {
 	}
 	err := ctx.Bot.handleQuickOperation(ctx.Event, data)
 	if err != nil {
-		log.Errorf("回复消息失败：%s", err.Error())
+		log.Errorf("回复消息失败: %s", err.Error())
 	}
 }
 
@@ -64,7 +72,7 @@ func (ctx *Context) ReplyRaw(msg Message) {
 	}
 	err := ctx.Bot.handleQuickOperation(ctx.Event, data)
 	if err != nil {
-		log.Errorf("回复消息失败：%s", err.Error())
+		log.Errorf("回复消息失败: %s", err.Error())
 	}
 }
 
@@ -78,7 +86,7 @@ func (ctx *Context) Delete() {
 		"delete": true,
 	})
 	if err != nil {
-		log.Errorf("撤回消息失败：%s", err.Error())
+		log.Errorf("撤回消息失败: %s", err.Error())
 	}
 }
 
@@ -92,7 +100,7 @@ func (ctx *Context) Kick() {
 		"kick": true,
 	})
 	if err != nil {
-		log.Errorf("踢出群员失败：%s", err.Error())
+		log.Errorf("踢出群员失败: %s", err.Error())
 	}
 }
 
@@ -107,7 +115,7 @@ func (ctx *Context) Ban(duration int) {
 		"ban_duration": duration,
 	})
 	if err != nil {
-		log.Errorf("禁言失败：%s", err.Error())
+		log.Errorf("禁言失败: %s", err.Error())
 	}
 }
 
@@ -121,7 +129,7 @@ func (ctx *Context) ApproveFriendRequest() {
 		"approve": true,
 	})
 	if err != nil {
-		log.Errorf("同意好友请求失败：%s", err.Error())
+		log.Errorf("同意好友请求失败: %s", err.Error())
 	}
 }
 
@@ -135,7 +143,7 @@ func (ctx *Context) RejectFriendRequest() {
 		"approve": false,
 	})
 	if err != nil {
-		log.Errorf("拒绝好友请求失败：%s", err.Error())
+		log.Errorf("拒绝好友请求失败: %s", err.Error())
 	}
 }
 
@@ -149,7 +157,7 @@ func (ctx *Context) ApproveGroupRequest() {
 		"approve": true,
 	})
 	if err != nil {
-		log.Errorf("同意群添加请求失败：%s", err.Error())
+		log.Errorf("同意群添加请求失败: %s", err.Error())
 	}
 }
 
@@ -164,7 +172,7 @@ func (ctx *Context) RejectGroupRequest(reason string) {
 		"reason":  reason,
 	})
 	if err != nil {
-		log.Errorf("拒绝群添加请求失败：%s", err.Error())
+		log.Errorf("拒绝群添加请求失败: %s", err.Error())
 	}
 }
 
@@ -234,7 +242,7 @@ func (ctx *Context) GetMap(key string) (m map[string]interface{}) {
 	}
 	m, ok := v.(map[string]interface{})
 	if !ok {
-		panic(fmt.Sprintf("键 %s 的值不是map", key))
+		panic(fmt.Sprintf("键 %s 的值不是map[string]interface{}", key))
 	}
 	return
 }
@@ -246,7 +254,7 @@ func (ctx *Context) GetSlice(key string) (s []interface{}) {
 	}
 	s, ok := v.([]interface{})
 	if !ok {
-		panic(fmt.Sprintf("键 %s 的值不是slice", key))
+		panic(fmt.Sprintf("键 %s 的值不是[]interface{}", key))
 	}
 	return
 }
