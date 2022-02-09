@@ -19,6 +19,14 @@ func newService(name string) *Service {
 		enableOnDefault: true,
 		groupState:      make(map[int64]bool),
 	}
+	sv.Use(func(c *Context, a *Action) {
+		gid, exist := getEventField(c.Event, "GroupId")
+		if exist {
+			if !sv.IsEnabled(gid.(int64)) {
+				a.AbortHandler()
+			}
+		}
+	})
 	return &sv
 }
 
