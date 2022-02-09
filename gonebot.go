@@ -43,7 +43,7 @@ func (engine *Engine) Run() {
 		data := gjson.ParseBytes(by)
 		ev := convertJsonObjectToEvent(data)
 
-		if ev.GetPostType() == POST_TYPE_META {
+		if ev.GetPostType() == PostTypeMetaEvent {
 			// log.Debug(ev.GetEventDescription())
 		} else {
 			log.Info(ev.GetEventDescription())

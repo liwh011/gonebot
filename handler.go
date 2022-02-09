@@ -37,7 +37,7 @@ func (h *Handler) Handle(f HandlerFunc, eventType ...EventName) (handler *Handle
 
 	// 0个参数时，表示响应全部事件
 	if len(eventType) == 0 {
-		eventType = append(eventType, EVENTNAME_ALL)
+		eventType = append(eventType, EventNameAllEvent)
 	}
 
 	h.parent.addSubHandler(h, eventType...)
@@ -86,7 +86,7 @@ func (h *Handler) NewHandlerGroup(eventTypes ...EventName) *Handler {
 		middlewares: []HandlerFunc{},
 	}
 	if len(eventTypes) == 0 {
-		eventTypes = append(eventTypes, EVENTNAME_ALL)
+		eventTypes = append(eventTypes, EventNameAllEvent)
 	}
 	for _, eventType := range eventTypes {
 		h.addSubHandler(nh, eventType)
@@ -146,7 +146,7 @@ func (h *Handler) handleEvent(ctx *Context, action *Action) {
 	subHandlers := make([]*Handler, 0)
 	for i := len(parts); i >= 0; i-- {
 		if i == 0 {
-			subHandlers = append(subHandlers, h.subHandlers[EVENTNAME_ALL]...)
+			subHandlers = append(subHandlers, h.subHandlers[EventNameAllEvent]...)
 			break
 		}
 		shs := h.subHandlers[EventName(strings.Join(parts[:i], "."))]
