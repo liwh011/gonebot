@@ -57,8 +57,8 @@ func (engine *Engine) Run() {
 
 func (engine *Engine) NewService(name string) *Service {
 	h := engine.NewHandler()
-	h.Handle(doNothingHandlerFunc)
 	sv := newService(name)
 	sv.Handler = *h
+	sv.Handle(doNothingHandlerFunc)
 	return sv
 }
