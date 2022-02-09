@@ -70,12 +70,28 @@ func (h *Handler) removeSubHandler(handler *Handler, eventType ...EventName) {
 
 // 新建一个Handler，注意此时并不会将其加入到Handler树中，不会接收到任何事件。
 // 如果要将其加入到Handler树中，请对其调用Handler.Handle()
-func (h *Handler) NewHandler() *Handler {
+func (h *Handler) NewHandler(middlewares ...HandlerFunc) *Handler {
 	return &Handler{
 		parent:      h,
 		subHandlers: make(map[EventName][]*Handler),
-		middlewares: make([]HandlerFunc, 0),
+		middlewares: middlewares,
 	}
+}
+
+// 新建一个单纯的Handler容器，该容器只是用来为一组Handler提供共同的middlewares
+func (h *Handler) NewHandlerGroup(eventTypes ...EventName) *Handler {
+	nh := &Handler{
+		parent:      h,
+		subHandlers: make(map[EventName][]*Handler),
+		middlewares: []HandlerFunc{},
+	}
+	if len(eventTypes) == 0 {
+		eventTypes = append(eventTypes, EVENTNAME_ALL)
+	}
+	for _, eventType := range eventTypes {
+		h.addSubHandler(nh, eventType)
+	}
+	return nh
 }
 
 func (h *Handler) handleEvent(ctx *Context, action *Action) {
