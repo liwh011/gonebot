@@ -53,7 +53,7 @@ func NewFrequencyLimiter(cd int, keyFunc func(ctx *gonebot.Context) string) *Fre
 // 以Session为粒度限制调用频率
 func NewSessionFreqLimiter(cd int) *FrequencyLimiter {
 	return NewFrequencyLimiter(cd, func(ctx *gonebot.Context) string {
-		return ctx.Event.(gonebot.I_MessageEvent).GetSessionId()
+		return ctx.Event.GetSessionId()
 	})
 }
 
@@ -128,6 +128,6 @@ func NewDailyTimesLimiter(times int, keyFunc func(ctx *gonebot.Context) string) 
 // 以Session为粒度限制调用每日调用次数
 func NewSessionDailyTimesLimiter(times int) *DailyTimesLimiter {
 	return NewDailyTimesLimiter(times, func(ctx *gonebot.Context) string {
-		return ctx.Event.(gonebot.I_MessageEvent).GetSessionId()
+		return ctx.Event.GetSessionId()
 	})
 }

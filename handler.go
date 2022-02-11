@@ -95,6 +95,13 @@ func (h *Handler) NewHandlerGroup(eventTypes ...EventName) *Handler {
 }
 
 func (h *Handler) handleEvent(ctx *Context, action *Action) {
+	// 替换Context中的Handler为当前正在处理的Handler
+	prevHandler := ctx.Handler
+	ctx.Handler = h
+	defer func() {
+		ctx.Handler = prevHandler
+	}()
+
 	/*
 		对于middleware的action
 		Next()：
@@ -257,11 +264,19 @@ func FromUser(userIds ...int64) HandlerFunc {
 	}
 }
 
+func FromSession(sessionId string) HandlerFunc {
+	return func(ctx *Context, action *Action) {
+		if ctx.Event.GetSessionId() != sessionId {
+			action.AbortHandler()
+		}
+	}
+}
+
 // 事件为MessageEvent，且消息以某个前缀开头
 func StartsWith(prefix ...string) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}
@@ -285,8 +300,8 @@ func StartsWith(prefix ...string) HandlerFunc {
 // 事件为MessageEvent，且消息以某个后缀结尾
 func EndsWith(suffix ...string) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}
@@ -310,8 +325,8 @@ func EndsWith(suffix ...string) HandlerFunc {
 // 事件为MessageEvent，且消息开头为指令
 func Command(cmdPrefix string, cmd ...string) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}
@@ -336,8 +351,8 @@ func Command(cmdPrefix string, cmd ...string) HandlerFunc {
 // 事件为MessageEvent，且消息中包含其中某个关键词
 func Keyword(keywords ...string) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}
@@ -359,8 +374,8 @@ func Keyword(keywords ...string) HandlerFunc {
 // 事件为MessageEvent，且消息中存在子串满足正则表达式
 func Regex(regex regexp.Regexp) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}
