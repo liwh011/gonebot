@@ -14,7 +14,7 @@ type Action struct {
 
 type HandlerFunc func(*Context, *Action)
 
-func doNothingHandlerFunc(*Context, *Action) {}
+// func doNothingHandlerFunc(*Context, *Action) {}
 
 type Handler struct {
 	middlewares []HandlerFunc
@@ -55,8 +55,10 @@ func (h *Handler) removeSubHandler(handler *Handler, eventType ...EventName) {
 	}
 }
 
-// 新建一个Handler，用于处理指定类型的事件
-func (h *Handler) NewHandler(eventTypes ...EventName) (handler *Handler, remove func()) {
+// 新建一个可以被删除的Handler，用于处理指定类型的事件。
+//
+// 调用remove方法可以删除当前Handler。
+func (h *Handler) NewRemovableHandler(eventTypes ...EventName) (handler *Handler, remove func()) {
 	handler = &Handler{
 		parent:      h,
 		subHandlers: make(map[EventName][]*Handler),
@@ -68,6 +70,12 @@ func (h *Handler) NewHandler(eventTypes ...EventName) (handler *Handler, remove 
 	return handler, func() {
 		h.removeSubHandler(handler, eventTypes...)
 	}
+}
+
+// 新建一个Handler，用于处理指定类型的事件
+func (h *Handler) NewHandler(eventTypes ...EventName) (handler *Handler) {
+	nh, _ := h.NewRemovableHandler(eventTypes...)
+	return nh
 }
 
 func (h *Handler) handleEvent(ctx *Context, action *Action) {

@@ -6,18 +6,20 @@ import (
 )
 
 func Test_WaitForNextEvent(t *testing.T) {
-
 	handler := &Handler{
 		parent:      nil,
 		subHandlers: make(map[EventName][]*Handler),
 	}
-	sub, _ := handler.NewHandler()
-	sub.Use(Command("哈哈哈")).Handle(func(c *Context, a *Action) {
-		ev := c.WaitForNextEvent(90)
-		if ev == nil {
-			t.Error("ev should not be nil")
-		}
-	})
+
+	handler.
+		NewHandler().
+		Use(Command("哈哈哈")).
+		Handle(func(c *Context, a *Action) {
+			ev := c.WaitForNextEvent(90)
+			if ev == nil {
+				t.Error("ev should not be nil")
+			}
+		})
 
 	msgEvent := &GroupMessageEvent{}
 	msgEvent.EventName = EventNameGroupMessage
@@ -41,13 +43,15 @@ func Test_WaitForNextEventTimeout(t *testing.T) {
 		parent:      nil,
 		subHandlers: make(map[EventName][]*Handler),
 	}
-	sub, _ := handler.NewHandler()
-	sub.Use(Command("哈哈哈")).Handle(func(c *Context, a *Action) {
-		ev := c.WaitForNextEvent(1)
-		if ev != nil {
-			t.Error("ev shoule be nil")
-		}
-	})
+	handler.
+		NewHandler().
+		Use(Command("哈哈哈")).
+		Handle(func(c *Context, a *Action) {
+			ev := c.WaitForNextEvent(1)
+			if ev != nil {
+				t.Error("ev shoule be nil")
+			}
+		})
 
 	msgEvent := &GroupMessageEvent{}
 	msgEvent.EventName = EventNameGroupMessage
