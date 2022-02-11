@@ -2,14 +2,16 @@ package gonebot
 
 import (
 	"fmt"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type Context struct {
-	Event I_Event                // 事件（实际上是个指针）
-	Keys  map[string]interface{} // 存放一些提取出来的数据
-	Bot   *Bot                   // Bot实例
+	Event   I_Event                // 事件（实际上是个指针）
+	Keys    map[string]interface{} // 存放一些提取出来的数据
+	Bot     *Bot                   // Bot实例
+	Handler *Handler
 }
 
 func newContext(event I_Event, bot *Bot) *Context {
@@ -257,4 +259,44 @@ func (ctx *Context) GetSlice(key string) (s []interface{}) {
 		panic(fmt.Sprintf("键 %s 的值不是[]interface{}", key))
 	}
 	return
+}
+
+// ===================
+//
+// 交互
+//
+// ===================
+
+// 获取下一个符合条件的事件，如果没有则阻塞本事件的处理流程。
+//
+// timeout为超时时间（单位为秒），超时返回nil。
+// middlewares为事件处理中间件，可以添加筛选条件。
+func (ctx *Context) WaitForNextEvent(timeout int, middlewares ...HandlerFunc) I_Event {
+	ch := make(chan I_Event, 1)
+
+	tempHandler := ctx.Handler.parent.NewHandler(middlewares...)
+	_, remove := tempHandler.Handle(func(c *Context, a *Action) {
+		ch <- c.Event
+		close(ch)
+	})
+	defer remove()
+
+	select {
+	case <-time.After(time.Duration(timeout) * time.Second):
+		return nil
+	case event := <-ch:
+		return event
+	}
+}
+
+// 获取同一个Session的下一个符合条件的事件。
+func (ctx *Context) WaitForNextEventInSameSession(timeout int, middlewares ...HandlerFunc) I_Event {
+	middlewares = append(middlewares, FromSession(ctx.Event.GetSessionId()))
+	return ctx.WaitForNextEvent(timeout, middlewares...)
+}
+
+// 发送提示消息，并获取它的回复（同一Session）。
+func (ctx *Context) Prompt(message Message, timeout int) *Message {
+	ctx.ReplyMsg(message)
+	return ctx.WaitForNextEventInSameSession(timeout).GetMessage()
 }
