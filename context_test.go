@@ -11,7 +11,8 @@ func Test_WaitForNextEvent(t *testing.T) {
 		parent:      nil,
 		subHandlers: make(map[EventName][]*Handler),
 	}
-	handler.NewHandler(Command("哈哈哈")).Handle(func(c *Context, a *Action) {
+	sub, _ := handler.NewHandler()
+	sub.Use(Command("哈哈哈")).Handle(func(c *Context, a *Action) {
 		ev := c.WaitForNextEvent(90)
 		if ev == nil {
 			t.Error("ev should not be nil")
@@ -40,7 +41,8 @@ func Test_WaitForNextEventTimeout(t *testing.T) {
 		parent:      nil,
 		subHandlers: make(map[EventName][]*Handler),
 	}
-	handler.NewHandler(Command("哈哈哈")).Handle(func(c *Context, a *Action) {
+	sub, _ := handler.NewHandler()
+	sub.Use(Command("哈哈哈")).Handle(func(c *Context, a *Action) {
 		ev := c.WaitForNextEvent(1)
 		if ev != nil {
 			t.Error("ev shoule be nil")

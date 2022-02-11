@@ -274,8 +274,8 @@ func (ctx *Context) GetSlice(key string) (s []interface{}) {
 func (ctx *Context) WaitForNextEvent(timeout int, middlewares ...HandlerFunc) I_Event {
 	ch := make(chan I_Event, 1)
 
-	tempHandler := ctx.Handler.parent.NewHandler(middlewares...)
-	_, remove := tempHandler.Handle(func(c *Context, a *Action) {
+	tempHandler, remove := ctx.Handler.parent.NewHandler()
+	tempHandler.Use(middlewares...).Handle(func(c *Context, a *Action) {
 		ch <- c.Event
 		close(ch)
 	})

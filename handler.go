@@ -28,22 +28,9 @@ func (h *Handler) Use(middlewares ...HandlerFunc) *Handler {
 	return h
 }
 
-// 指定事件及处理函数，并将其加入到Handler树中，使其生效
-func (h *Handler) Handle(f HandlerFunc, eventType ...EventName) (handler *Handler, remove func()) {
+// 指定事件处理函数
+func (h *Handler) Handle(f HandlerFunc) {
 	h.middlewares = append(h.middlewares, f)
-	if h.parent == nil {
-		return h, func() {}
-	}
-
-	// 0个参数时，表示响应全部事件
-	if len(eventType) == 0 {
-		eventType = append(eventType, EventNameAllEvent)
-	}
-
-	h.parent.addSubHandler(h, eventType...)
-	return h, func() {
-		h.parent.removeSubHandler(h, eventType...)
-	}
 }
 
 // 添加子Handler
@@ -68,30 +55,19 @@ func (h *Handler) removeSubHandler(handler *Handler, eventType ...EventName) {
 	}
 }
 
-// 新建一个Handler，注意此时并不会将其加入到Handler树中，不会接收到任何事件。
-// 如果要将其加入到Handler树中，请对其调用Handler.Handle()
-func (h *Handler) NewHandler(middlewares ...HandlerFunc) *Handler {
-	return &Handler{
+// 新建一个Handler，用于处理指定类型的事件
+func (h *Handler) NewHandler(eventTypes ...EventName) (handler *Handler, remove func()) {
+	handler = &Handler{
 		parent:      h,
 		subHandlers: make(map[EventName][]*Handler),
-		middlewares: middlewares,
-	}
-}
-
-// 新建一个单纯的Handler容器，该容器只是用来为一组Handler提供共同的middlewares
-func (h *Handler) NewHandlerGroup(eventTypes ...EventName) *Handler {
-	nh := &Handler{
-		parent:      h,
-		subHandlers: make(map[EventName][]*Handler),
-		middlewares: []HandlerFunc{},
 	}
 	if len(eventTypes) == 0 {
 		eventTypes = append(eventTypes, EventNameAllEvent)
 	}
-	for _, eventType := range eventTypes {
-		h.addSubHandler(nh, eventType)
+	h.addSubHandler(handler, eventTypes...)
+	return handler, func() {
+		h.removeSubHandler(handler, eventTypes...)
 	}
-	return nh
 }
 
 func (h *Handler) handleEvent(ctx *Context, action *Action) {
