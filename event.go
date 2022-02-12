@@ -9,47 +9,53 @@ import (
 )
 
 const (
-	POST_TYPE_META    = "meta_event"
-	POST_TYPE_MESSAGE = "message"
-	POST_TYPE_NOTICE  = "notice"
-	POST_TYPE_REQUEST = "request"
+	PostTypeMetaEvent    = "meta_event"
+	PostTypeMessageEvent = "message"
+	PostTypeNoticeEvent  = "notice"
+	PostTypeRequestEvent = "request"
 )
 
 type EventName string
 
 const (
-	EVENTNAME_ALL               EventName = "all"
-	EVENTNAME_MESSAGE           EventName = "message"
-	EVENTNAME_PRIVATE_MESSAGE   EventName = "message.private"
-	EVENTNAME_GROUP_MESSAGE     EventName = "message.group"
-	EVENTNAME_NOTICE            EventName = "notice"
-	EVENTNAME_GROUP_UPLOAD      EventName = "notice.group_upload"
-	EVENTNAME_GROUP_ADMIN       EventName = "notice.group_admin"
-	EVENTNAME_GROUP_DECREASE    EventName = "notice.group_decrease"
-	EVENTNAME_GROUP_INCREASE    EventName = "notice.group_increase"
-	EVENTNAME_GROUP_BAN         EventName = "notice.group_ban"
-	EVENTNAME_FRIEND_ADD        EventName = "notice.friend_add"
-	EVENTNAME_GROUP_RECALL      EventName = "notice.group_recall"
-	EVENTNAME_FRIEND_RECALL     EventName = "notice.friend_recall"
-	EVENTNAME_NOTIFY            EventName = "notice.notify"
-	EVENTNAME_NOTIFY_POKE       EventName = "notice.notify.poke"
-	EVENTNAME_NOTIFY_LUCKY_KING EventName = "notice.notify.lucky_king"
-	EVENTNAME_NOTIFY_HONOR      EventName = "notice.notify.honor"
-	EVENTNAME_REQUEST           EventName = "request"
-	EVENTNAME_REQUEST_FRIEND    EventName = "request.friend"
-	EVENTNAME_REQUEST_GROUP     EventName = "request.group"
-	EVENTNAME_META              EventName = "meta_event"
-	EVENTNAME_META_LIFECYCLE    EventName = "meta_event.lifecycle"
-	EVENTNAME_META_HEARTBEAT    EventName = "meta_event.heartbeat"
+	EventNameAllEvent        EventName = "all"
+	EventNameMessage         EventName = "message"
+	EventNamePrivateMessage  EventName = "message.private"
+	EventNameGroupMessage    EventName = "message.group"
+	EventNameNotice          EventName = "notice"
+	EventNameGroupUpload     EventName = "notice.group_upload"
+	EventNameGroupAdmin      EventName = "notice.group_admin"
+	EventNameGroupDecrease   EventName = "notice.group_decrease"
+	EventNameGroupIncrease   EventName = "notice.group_increase"
+	EventNameGroupBan        EventName = "notice.group_ban"
+	EventNameFriendAdd       EventName = "notice.friend_add"
+	EventNameGroupRecall     EventName = "notice.group_recall"
+	EventNameFriendRecall    EventName = "notice.friend_recall"
+	EventNameNotify          EventName = "notice.notify"
+	EventNameNotifyPoke      EventName = "notice.notify.poke"
+	EventNameNotifyLuckyKing EventName = "notice.notify.lucky_king"
+	EventNameNotifyHonor     EventName = "notice.notify.honor"
+	EventNameRequest         EventName = "request"
+	EventNameRequestFriend   EventName = "request.friend"
+	EventNameRequestGroup    EventName = "request.group"
+	EventNameMeta            EventName = "meta_event"
+	EventNameMetaLifecycle   EventName = "meta_event.lifecycle"
+	EventNameMetaHeartbeat   EventName = "meta_event.heartbeat"
 )
 
 type I_Event interface {
-	GetPostType() string
-	GetEventName() EventName
-	GetEventDescription() string
+	GetPostType() string         // 获取事件的上报类型，有message, notice, request, meta_event
+	GetSecondType() string       // 获取事件的第二级类型。
+	GetSubType() string          // 获取第三级类型。部分事件没有这个字段，则返回空字符串
+	GetEventName() EventName     // 获取事件的名称，即完整类型。形如：notice.group.set
+	GetEventDescription() string // 获取事件的描述，一般用于日志输出
 
 	IsMessageEvent() bool
 	IsToMe() bool
+
+	GetSessionId() string     // 获取事件的会话ID，用于区分不同的会话。私聊为"QQ号"，群聊中对应"QQ号@群号"。
+	GetMessage() *Message     // 提取消息。非消息事件返回nil
+	ExtractPlainText() string // 提取消息的纯文本。非消息事件返回空字符串
 }
 
 type Event struct {
@@ -66,6 +72,14 @@ func (e *Event) GetPostType() string {
 	return e.PostType
 }
 
+func (e *Event) GetSecondType() string {
+	return ""
+}
+
+func (e *Event) GetSubType() string {
+	return ""
+}
+
 // 获取事件的名称，形如：notice.group.set
 func (e *Event) GetEventName() EventName {
 	return e.EventName
@@ -77,11 +91,23 @@ func (e *Event) GetEventDescription() string {
 }
 
 func (e *Event) IsMessageEvent() bool {
-	return e.PostType == POST_TYPE_MESSAGE
+	return e.PostType == PostTypeMessageEvent
 }
 
 func (e *Event) IsToMe() bool {
 	return e.ToMe
+}
+
+func (e *Event) GetSessionId() string {
+	return ""
+}
+
+func (e *Event) GetMessage() *Message {
+	return nil
+}
+
+func (e *Event) ExtractPlainText() string {
+	return ""
 }
 
 // 从JSON对象中生成Event对象（指针）
@@ -157,18 +183,6 @@ func convertJsonObjectToEvent(obj gjson.Result) I_Event {
 	return ev
 }
 
-type I_MessageEvent interface {
-	GetPostType() string
-	GetEventName() EventName
-	GetEventDescription() string
-	IsToMe() bool
-
-	GetMessageType() string
-	GetSessionId() string
-	GetMessage() *Message
-	ExtractPlainText() string
-}
-
 type MessageEvent struct {
 	Event
 	MessageType string  `json:"message_type"` // 消息类型，group, private
@@ -181,8 +195,12 @@ type MessageEvent struct {
 
 }
 
-func (e *MessageEvent) GetMessageType() string {
+func (e *MessageEvent) GetSecondType() string {
 	return e.MessageType
+}
+
+func (e *MessageEvent) GetSubType() string {
+	return e.SubType
 }
 
 func (e *MessageEvent) GetSessionId() string {
@@ -265,6 +283,14 @@ type LifeCycleMetaEvent struct {
 	SubType       string `json:"sub_type"`        // 元事件子类型，enable、disable、connect
 }
 
+func (e *LifeCycleMetaEvent) GetSecondType() string {
+	return e.MetaEventType
+}
+
+func (e *LifeCycleMetaEvent) GetSubType() string {
+	return e.SubType
+}
+
 type HeartbeatMetaEvent struct {
 	Event
 	MetaEventType string `json:"meta_event_type"` // 元事件类型，heartbeat
@@ -275,9 +301,17 @@ type HeartbeatMetaEvent struct {
 	Interval int64 `json:"interval"` // 元事件心跳间隔，单位ms
 }
 
+func (e *HeartbeatMetaEvent) GetSecondType() string {
+	return e.MetaEventType
+}
+
 type NoticeEvent struct {
 	Event
 	NoticeType string `json:"notice_type"` // 通知类型，group, private
+}
+
+func (e *NoticeEvent) GetSecondType() string {
+	return e.NoticeType
 }
 
 // 群文件上传通知
@@ -293,12 +327,24 @@ type GroupUploadNoticeEvent struct {
 	} `json:"file"`
 }
 
+func (e *GroupUploadNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
 // 群管理员变动通知
 type GroupAdminNoticeEvent struct {
 	NoticeEvent
 	SubType string `json:"sub_type"` // 通知子类型，set unset
 	GroupId int64  `json:"group_id"` // 群号
 	UserId  int64  `json:"user_id"`  // 管理员 QQ 号
+}
+
+func (e *GroupAdminNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
+func (e *GroupAdminNoticeEvent) GetSubType() string {
+	return e.SubType
 }
 
 // 群成员增加通知
@@ -310,6 +356,14 @@ type GroupIncreaseNoticeEvent struct {
 	OperatorId int64  `json:"operator_id"` // 操作者 QQ 号
 }
 
+func (e *GroupIncreaseNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
+func (e *GroupIncreaseNoticeEvent) GetSubType() string {
+	return e.SubType
+}
+
 // 群成员减少通知
 type GroupDecreaseNoticeEvent struct {
 	NoticeEvent
@@ -317,6 +371,14 @@ type GroupDecreaseNoticeEvent struct {
 	GroupId    int64  `json:"group_id"`    // 群号
 	UserId     int64  `json:"user_id"`     // 离开者 QQ 号
 	OperatorId int64  `json:"operator_id"` // 操作者 QQ 号
+}
+
+func (e *GroupDecreaseNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
+func (e *GroupDecreaseNoticeEvent) GetSubType() string {
+	return e.SubType
 }
 
 // 群禁言通知
@@ -329,10 +391,22 @@ type GroupBanNoticeEvent struct {
 	Duration   int64  `json:"duration"`    // 禁言时长，单位秒
 }
 
+func (e *GroupBanNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
+func (e *GroupBanNoticeEvent) GetSubType() string {
+	return e.SubType
+}
+
 // 好友添加通知
 type FriendAddNoticeEvent struct {
 	NoticeEvent
 	UserId int64 `json:"user_id"` // 好友 QQ 号
+}
+
+func (e *FriendAddNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d", e.UserId)
 }
 
 // 群消息撤回通知
@@ -344,11 +418,19 @@ type GroupRecallNoticeEvent struct {
 	MessageId  int64 `json:"message_id"`  // 消息 ID
 }
 
+func (e *GroupRecallNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
 // 好友消息撤回通知
 type FriendRecallNoticeEvent struct {
 	NoticeEvent
 	UserId    int64 `json:"user_id"`    // 撤回者 QQ 号
 	MessageId int64 `json:"message_id"` // 消息 ID
+}
+
+func (e *FriendRecallNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d", e.UserId)
 }
 
 // 戳一戳通知
@@ -360,6 +442,14 @@ type PokeNoticeEvent struct {
 	TargetId int64  `json:"target_id"` // 被戳一戳的 QQ 号
 }
 
+func (e *PokeNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
+func (e *PokeNoticeEvent) GetSubType() string {
+	return e.SubType
+}
+
 // 运气王通知
 type LuckyKingNoticeEvent struct {
 	NoticeEvent
@@ -367,6 +457,14 @@ type LuckyKingNoticeEvent struct {
 	GroupId  int64  `json:"group_id"`  // 群号
 	UserId   int64  `json:"user_id"`   // 发红包者的 QQ 号
 	TargetId int64  `json:"target_id"` // 运气王的 QQ 号
+}
+
+func (e *LuckyKingNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
+func (e *LuckyKingNoticeEvent) GetSubType() string {
+	return e.SubType
 }
 
 // 群成员荣誉变更
@@ -378,6 +476,14 @@ type HonorNoticeEvent struct {
 	HonorType string `json:"honor_type"` // 荣誉类型，talkative、performer、emotion，分别表示龙王、群聊之火、快乐源泉
 }
 
+func (e *HonorNoticeEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
+func (e *HonorNoticeEvent) GetSubType() string {
+	return e.SubType
+}
+
 // 加好友请求事件
 type FriendRequestEvent struct {
 	Event
@@ -385,6 +491,14 @@ type FriendRequestEvent struct {
 	UserId      int64  `json:"user_id"`      // 发送请求的QQ号
 	Comment     string `json:"comment"`      // 验证消息
 	Flag        string `json:"flag"`         // 请求 flag，在调用处理请求的 API 时需要传入
+}
+
+func (e *FriendRequestEvent) GetSecondType() string {
+	return e.RequestType
+}
+
+func (e *FriendRequestEvent) GetSessionId() string {
+	return fmt.Sprintf("%d", e.UserId)
 }
 
 // 加群请求事件
@@ -396,4 +510,16 @@ type GroupRequestEvent struct {
 	UserId      int64  `json:"user_id"`      // 发送请求的QQ号
 	Comment     string `json:"comment"`      // 验证消息
 	Flag        string `json:"flag"`         // 请求请求 flag，在调用处理请求的 API 时需要传入标识
+}
+
+func (e *GroupRequestEvent) GetSecondType() string {
+	return e.RequestType
+}
+
+func (e *GroupRequestEvent) GetSessionId() string {
+	return fmt.Sprintf("%d@%d", e.UserId, e.GroupId)
+}
+
+func (e *GroupRequestEvent) GetSubType() string {
+	return e.SubType
 }

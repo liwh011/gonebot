@@ -7,10 +7,10 @@ type Bot struct {
 	accessToken string
 }
 
-func NewBot(d *WebsocketClient, cfg *Config) *Bot {
+func NewBot(d *WebsocketClient, cfg Config) *Bot {
 	bot := &Bot{}
 	bot.driver = d
-	bot.accessToken = cfg.AccessToken
+	bot.accessToken = cfg.GetBaseConfig().Websocket.AccessToken
 	return bot
 }
 

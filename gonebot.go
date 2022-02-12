@@ -9,15 +9,17 @@ import (
 
 type Engine struct {
 	Handler
-	bot *Bot
-	ws  *WebsocketClient
+	Config Config
+	bot    *Bot
+	ws     *WebsocketClient
 }
 
-func NewEngine(cfg *Config) *Engine {
+func NewEngine(cfg Config) *Engine {
 	engine := &Engine{}
+	engine.Config = cfg
 
-	wsAddr := fmt.Sprintf("ws://%s:%d/", cfg.WsHost, cfg.WsPort)
-	engine.ws = NewWebsocketClient(wsAddr, cfg.ApiCallTimeout)
+	wsAddr := fmt.Sprintf("ws://%s:%d/", cfg.GetBaseConfig().Websocket.Host, cfg.GetBaseConfig().Websocket.Port)
+	engine.ws = NewWebsocketClient(wsAddr, cfg.GetBaseConfig().Websocket.ApiCallTimeout)
 
 	engine.bot = NewBot(engine.ws, cfg)
 
@@ -43,7 +45,7 @@ func (engine *Engine) Run() {
 		data := gjson.ParseBytes(by)
 		ev := convertJsonObjectToEvent(data)
 
-		if ev.GetPostType() == POST_TYPE_META {
+		if ev.GetPostType() == PostTypeMetaEvent {
 			// log.Debug(ev.GetEventDescription())
 		} else {
 			log.Info(ev.GetEventDescription())
@@ -57,7 +59,6 @@ func (engine *Engine) Run() {
 
 func (engine *Engine) NewService(name string) *Service {
 	h := engine.NewHandler()
-	h.Handle(doNothingHandlerFunc)
 	sv := newService(name)
 	sv.Handler = *h
 	return sv

@@ -14,7 +14,7 @@ type Action struct {
 
 type HandlerFunc func(*Context, *Action)
 
-func doNothingHandlerFunc(*Context, *Action) {}
+// func doNothingHandlerFunc(*Context, *Action) {}
 
 type Handler struct {
 	middlewares []HandlerFunc
@@ -28,22 +28,9 @@ func (h *Handler) Use(middlewares ...HandlerFunc) *Handler {
 	return h
 }
 
-// 指定事件及处理函数，并将其加入到Handler树中，使其生效
-func (h *Handler) Handle(f HandlerFunc, eventType ...EventName) (handler *Handler, remove func()) {
+// 指定事件处理函数
+func (h *Handler) Handle(f HandlerFunc) {
 	h.middlewares = append(h.middlewares, f)
-	if h.parent == nil {
-		return h, func() {}
-	}
-
-	// 0个参数时，表示响应全部事件
-	if len(eventType) == 0 {
-		eventType = append(eventType, EVENTNAME_ALL)
-	}
-
-	h.parent.addSubHandler(h, eventType...)
-	return h, func() {
-		h.parent.removeSubHandler(h, eventType...)
-	}
 }
 
 // 添加子Handler
@@ -68,19 +55,39 @@ func (h *Handler) removeSubHandler(handler *Handler, eventType ...EventName) {
 	}
 }
 
-// 新建一个Handler，注意此时并不会将其加入到Handler树中，不会接收到任何事件。
-// 如果要将其加入到Handler树中，请对其调用Handler.Handle()
-func (h *Handler) NewHandler() *Handler {
-	return &Handler{
+// 新建一个可以被删除的Handler，用于处理指定类型的事件。
+//
+// 调用remove方法可以删除当前Handler。
+func (h *Handler) NewRemovableHandler(eventTypes ...EventName) (handler *Handler, remove func()) {
+	handler = &Handler{
 		parent:      h,
 		subHandlers: make(map[EventName][]*Handler),
-		middlewares: make([]HandlerFunc, 0),
+	}
+	if len(eventTypes) == 0 {
+		eventTypes = append(eventTypes, EventNameAllEvent)
+	}
+	h.addSubHandler(handler, eventTypes...)
+	return handler, func() {
+		h.removeSubHandler(handler, eventTypes...)
 	}
 }
 
+// 新建一个Handler，用于处理指定类型的事件
+func (h *Handler) NewHandler(eventTypes ...EventName) (handler *Handler) {
+	nh, _ := h.NewRemovableHandler(eventTypes...)
+	return nh
+}
+
 func (h *Handler) handleEvent(ctx *Context, action *Action) {
+	// 替换Context中的Handler为当前正在处理的Handler
+	prevHandler := ctx.Handler
+	ctx.Handler = h
+	defer func() {
+		ctx.Handler = prevHandler
+	}()
+
 	/*
-		对于middleware的action
+		对于在middleware中调用的action
 		Next()：
 			继续后续中间件的执行
 		AbortHandler()：
@@ -114,7 +121,7 @@ func (h *Handler) handleEvent(ctx *Context, action *Action) {
 	}
 
 	/*
-		对于Handler的action
+		对于在Handler中调用的action
 		Next()：
 			继续后续Handler的执行
 		AbortHandler()：
@@ -130,7 +137,7 @@ func (h *Handler) handleEvent(ctx *Context, action *Action) {
 	subHandlers := make([]*Handler, 0)
 	for i := len(parts); i >= 0; i-- {
 		if i == 0 {
-			subHandlers = append(subHandlers, h.subHandlers[EVENTNAME_ALL]...)
+			subHandlers = append(subHandlers, h.subHandlers[EventNameAllEvent]...)
 			break
 		}
 		shs := h.subHandlers[EventName(strings.Join(parts[:i], "."))]
@@ -153,6 +160,7 @@ func (h *Handler) handleEvent(ctx *Context, action *Action) {
 	subHandlerAction.StopEventPropagation = func() {
 		idx = len(subHandlers)
 		stop = true
+		action.StopEventPropagation() // 停止父级Handler的事件传播
 	}
 
 	for !stop && idx < len(subHandlers) {
@@ -241,11 +249,19 @@ func FromUser(userIds ...int64) HandlerFunc {
 	}
 }
 
+func FromSession(sessionId string) HandlerFunc {
+	return func(ctx *Context, action *Action) {
+		if ctx.Event.GetSessionId() != sessionId {
+			action.AbortHandler()
+		}
+	}
+}
+
 // 事件为MessageEvent，且消息以某个前缀开头
 func StartsWith(prefix ...string) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}
@@ -269,8 +285,8 @@ func StartsWith(prefix ...string) HandlerFunc {
 // 事件为MessageEvent，且消息以某个后缀结尾
 func EndsWith(suffix ...string) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}
@@ -294,8 +310,8 @@ func EndsWith(suffix ...string) HandlerFunc {
 // 事件为MessageEvent，且消息开头为指令
 func Command(cmdPrefix string, cmd ...string) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}
@@ -317,11 +333,31 @@ func Command(cmdPrefix string, cmd ...string) HandlerFunc {
 	}
 }
 
+func FullMatch(text ...string) HandlerFunc {
+	return func(ctx *Context, action *Action) {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
+			action.AbortHandler()
+			return
+		}
+
+		msgText := e.ExtractPlainText()
+		reg := regexp.MustCompile(fmt.Sprintf("^(%s)$", strings.Join(text, "|")))
+		find := reg.FindString(msgText)
+		if find == "" {
+			action.AbortHandler()
+			return
+		}
+
+		ctx.Set("fullMatch", text)
+	}
+}
+
 // 事件为MessageEvent，且消息中包含其中某个关键词
 func Keyword(keywords ...string) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}
@@ -343,8 +379,8 @@ func Keyword(keywords ...string) HandlerFunc {
 // 事件为MessageEvent，且消息中存在子串满足正则表达式
 func Regex(regex regexp.Regexp) HandlerFunc {
 	return func(ctx *Context, action *Action) {
-		e, ok := ctx.Event.(I_MessageEvent)
-		if !ok {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
 			action.AbortHandler()
 			return
 		}

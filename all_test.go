@@ -6,22 +6,24 @@ package gonebot
 // )
 
 // func Test_Run(t *testing.T) {
-// 	cfg := Config{
-// 		WsHost:         "127.0.0.1",
-// 		WsPort:         6700,
-// 		ApiCallTimeout: 10,
-// 		AccessToken:    "",
+// 	cfg := BaseConfig{
+// 		Websocket: WebsocketConfig{
+// 			Host:           "127.0.0.1",
+// 			Port:           6700,
+// 			AccessToken:    "",
+// 			ApiCallTimeout: 10,
+// 		},
 // 	}
 // 	engine := NewEngine(&cfg)
 
 // 	sv := engine.NewService("test")
 // 	sv.
-// 		NewHandler().
+// 		NewHandler(EventNameGroupMessage).
 // 		Use(OnlyToMe(), StartsWith("哼哼")).
 // 		Handle(func(c *Context, a *Action) {
 // 			c.Reply("好丑啊")
 // 			fmt.Printf("%+v", c)
-// 		}, EVENTNAME_MESSAGE)
+// 		})
 
 // 	engine.Run()
 // }
