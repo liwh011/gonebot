@@ -332,6 +332,26 @@ func Command(cmdPrefix string, cmd ...string) HandlerFunc {
 	}
 }
 
+func FullMatch(text ...string) HandlerFunc {
+	return func(ctx *Context, action *Action) {
+		e := ctx.Event
+		if !e.IsMessageEvent() {
+			action.AbortHandler()
+			return
+		}
+
+		msgText := e.ExtractPlainText()
+		reg := regexp.MustCompile(fmt.Sprintf("^(%s)$", strings.Join(text, "|")))
+		find := reg.FindString(msgText)
+		if find == "" {
+			action.AbortHandler()
+			return
+		}
+
+		ctx.Set("fullMatch", text)
+	}
+}
+
 // 事件为MessageEvent，且消息中包含其中某个关键词
 func Keyword(keywords ...string) HandlerFunc {
 	return func(ctx *Context, action *Action) {
