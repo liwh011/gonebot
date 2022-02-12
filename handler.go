@@ -87,7 +87,7 @@ func (h *Handler) handleEvent(ctx *Context, action *Action) {
 	}()
 
 	/*
-		对于middleware的action
+		对于在middleware中调用的action
 		Next()：
 			继续后续中间件的执行
 		AbortHandler()：
@@ -121,7 +121,7 @@ func (h *Handler) handleEvent(ctx *Context, action *Action) {
 	}
 
 	/*
-		对于Handler的action
+		对于在Handler中调用的action
 		Next()：
 			继续后续Handler的执行
 		AbortHandler()：
@@ -160,6 +160,7 @@ func (h *Handler) handleEvent(ctx *Context, action *Action) {
 	subHandlerAction.StopEventPropagation = func() {
 		idx = len(subHandlers)
 		stop = true
+		action.StopEventPropagation() // 停止父级Handler的事件传播
 	}
 
 	for !stop && idx < len(subHandlers) {
