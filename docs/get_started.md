@@ -11,35 +11,36 @@ go get github.com/liwh011/gonebot
 建立一个Go项目，创建一个go文件并输入以下内容
 ```go
 package main
+
 import "github.com/liwh011/gonebot"
 
 func main() {
-    cfg := gonebot.Config{
-        // 正向Websocket，ws服务器的地址
+	cfg := gonebot.BaseConfig{
+		// 正向Websocket，ws服务器的地址
 		Websocket: gonebot.WebsocketConfig{
-			Host:        "127.0.0.1",
-			Port:        6700,
-			AccessToken: "",
-            ApiCallTimeout: 10,
+			Host:           "127.0.0.1",
+			Port:           6700,
+			AccessToken:    "",
+			ApiCallTimeout: 10,
 		},
 	}
-    engine := gonebot.NewEngine(&cfg)
+	engine := gonebot.NewEngine(&cfg)
 
-    // 创建一个Handler，用来处理私聊消息事件。
-    engine.NewHandler(gonebot.EventNamePrivateMessage).
-        Use(gonebot.FullMatch("你几岁")).
-        Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
-            c.Reply("24岁，是学生")
-            act.StopEventPropagation()
-        })
+	// 创建一个Handler，用来处理私聊消息事件。
+	engine.NewHandler(gonebot.EventNamePrivateMessage).
+		Use(gonebot.FullMatch("你几岁")).
+		Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+			ctx.Reply("24岁，是学生")
+			act.StopEventPropagation()
+		})
 
-    engine.NewHandler(gonebot.EventNamePrivateMessage).
-        Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
-            c.Reply("哼哼啊啊啊啊啊啊啊啊啊啊啊啊")
-        })
+	engine.NewHandler(gonebot.EventNamePrivateMessage).
+		Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+			ctx.Reply("哼哼啊啊啊啊啊啊啊啊啊啊啊啊")
+		})
 
-    // 启动
-    engine.Run()
+	// 启动
+	engine.Run()
 }
 ```
 编译并运行。
@@ -58,7 +59,7 @@ func main() {
 engine.NewHandler(gonebot.EventNamePrivateMessage).
     Use(gonebot.FullMatch("你几岁")).
     Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
-        c.Reply("24岁，是学生")
+        ctx.Reply("24岁，是学生")
         act.StopEventPropagation()
     })
 ```
