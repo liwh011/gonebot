@@ -2,6 +2,8 @@
 ## 在此之前
 你需要有一个支持正向Websocket的[OneBot实现](https://onebot.dev/ecosystem.html#onebot-%E5%AE%9E%E7%8E%B0)（如[go-cqhttp](https://github.com/Mrs4s/go-cqhttp)），并配置好Websocket的相关参数。
 
+**注意：如果你使用的是go-cqhttp，请将config.yml中的`message.post-format`的值更改为`array`。因为本框架暂不支持string类型消息的解析。**
+
 ## 安装
 ```sh
 go get github.com/liwh011/gonebot
