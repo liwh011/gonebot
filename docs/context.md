@@ -146,7 +146,7 @@ engine.NewHandler(gonebot.EventNameGroupMessage).
             if m1 == nil {
                 return
             }
-            targetId = (*m1)[0].Data["qq"]
+            targetIdStr = (*m1)[0].Data["qq"]
         } else {
             targetIdStr = (*msg)[1].Data["qq"]
         }
