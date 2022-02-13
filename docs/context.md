@@ -24,7 +24,7 @@ Context基于Bot提供的API再次封装，提供了一些快速操作，让你�
 engine.NewHandler(gonebot.EventNameGroupMessage).
     Use(gonebot.Keyword("涩图")).
     Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
-        ctx.Ban(10)
+        ctx.Ban(10)  // 禁言
         ctx.Reply("不可以涩涩")
     })
 ```
@@ -37,7 +37,7 @@ engine.NewHandler(gonebot.EventNameGroupMessage).
     Use(gonebot.StartsWith("报告问题")).
     Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
         // 构造消息对象
-        msg := gonebot.MsgPrintf("来自%s报告的问题：{}", ctx.Event.GetSessionId(), *ctx.Event.GetMessage())
+        msg := gonebot.MsgPrintf("来自%s报告的问题：{}", ctx.Event.GetSessionId(), *(ctx.Event.GetMessage()))
         // 调用SendPrivateMsg，私发给超管
         superUserId := 1919810
         ctx.Bot.SendPrivateMsg(superUserId, msg, false)
@@ -64,7 +64,7 @@ func CheckZhaoCha(ctx *gonebot.Context, act *gonebot.Action) {
 ```
 该例子通过使用Context的`Set`函数，向Keys写入数据，以供后续使用。
 
-类似地，内置的先决条件中间件也会向其中写入一些数据。例如`Command`将会使用`command`这个键并写入一个map，你可以合理使用这些字段来避免手动处理文本。
+类似地，内置的先决条件中间件也会向其中写入一些数据。例如`Command`将会使用`"command"`这个键并写入一个map，你可以合理使用这些字段来避免手动处理文本。
 ```go
 map[string]interface{}{
     "raw_cmd": 包含命令前缀的命令名称,
@@ -116,7 +116,8 @@ v := ctx.GetString("name")   // ""
 
 有！Context提供了几个Wait函数，用于在不结束当前Handler的情况下，获取下一个符合条件的事件。它将会阻塞当前Handler（甚至当前事件处理流程），直到接收到符合条件的事件或超过超时时间。
 
-`WaitForNextEvent`接受timeout参数和middleware参数，你可以传入你的middleware来筛选事件。
+### 获取未来事件
+`WaitForNextEvent`接受timeout参数和middleware参数，你可以传入你的middleware来筛选事件。超时则返回nil。
 ```go
 // 打断复读
 engine.NewHandler(gonebot.EventNameGroupMessage).
@@ -131,6 +132,7 @@ engine.NewHandler(gonebot.EventNameGroupMessage).
     })
 ```
 
+### 等待用户输入
 `Prompt`则是对`WaitForNextEvent`的进一步封装。它接受message和timeout，将提示消息发出去后并等待该用户的回复。若用户在timeout时间内回复，则返回该消息对象，否则返回nil。
 ```go
 // 简单起见，我们将指令简化为`雷普<@某人>`
@@ -153,7 +155,7 @@ engine.NewHandler(gonebot.EventNameGroupMessage).
         // do something...
     })
 ```
-实际上，我推荐将参数接续过程写成中间件的形式，将解析结果写入Context。而不是统统塞在处理函数里面。
+实际上，我推荐将参数解析过程写成中间件的形式，将解析结果写入Context。而不是统统塞在处理函数里面。
 
 # EOF
 你已经掌握Context啦，你能写更复杂的处理逻辑了，快去试试吧。
