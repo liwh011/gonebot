@@ -8,7 +8,9 @@ go get github.com/liwh011/gonebot
 ```
 
 ## Hello World!
-建立一个Go项目，创建一个go文件并输入以下内容
+建立一个Go项目，使用`go init`来启用Go Module支持。
+
+创建一个go文件并输入以下内容，将WebsocketConfig配置中的参数改为你的先前为OneBot配置的参数。
 ```go
 package main
 
@@ -51,7 +53,7 @@ func main() {
 
 # 交互
 ## 创建事件处理器
-一个事件处理器（Handler）用于响应一种或多种类型的事件（Event）并作出一定动作。当机器人收到相应类型的事件后，如果上游Handler未打断事件传播（后面会解释），那么该Handler将会被调用。
+一个事件处理器（Handler）用于响应一种或多种类型的事件（Event）并作出一定动作。当机器人收到相应类型的事件后，如果上游Handler未打断事件传播（后面会解释），那么该Handler将会被调用。Handler由中间件、处理函数、子Handler构成。
 
 ### 基本操作
 下面来看上面Hello World中的一段代码：
@@ -122,7 +124,7 @@ h.Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
 ```go
 // 为卖瓜编写一个中间件，看看顾客是否在找茬
 func CheckZhaoCha(ctx *gonebot.Context, act *gonebot.Action) {
-    text := ctx.Event.ExtractPlainText()
+    text := ctx.Event.ExtractPlainText()  // 访问Event，获取消息中的纯文字
     if text == "我问你这瓜保熟吗？" {
         ctx.Set("找茬", true)  // 向CTX写入数据
         if ctx.Event.(*PrivateMessageEvent).Sender.Nickname == "刘华强" {
@@ -131,17 +133,19 @@ func CheckZhaoCha(ctx *gonebot.Context, act *gonebot.Action) {
     }
 }
 
-engine.NewHandler().Use(CheckZhaoCha).Handle(func (ctx *gonebot.Context, act *gonebot.Action) {
-    if ctx.GetBool("找茬") == true {
-        ctx.Reply("你是故意找茬是不是？你要不要吧！")
-    } else {
-        ctx.Reply("我开水果摊的，能卖给你生瓜蛋子？")
-    }
-})
+engine.NewHandler(gonebot.EventNamePrivateMessage).
+    Use(CheckZhaoCha).  // 使用刚刚写的找茬中间件
+    Handle(func (ctx *gonebot.Context, act *gonebot.Action) {
+        if ctx.GetBool("找茬") == true {  // 从CTX获取先前写入的数据
+            ctx.Reply("你是故意找茬是不是？你要不要吧！")  // 调用CTX的快速操作
+        } else {
+            ctx.Reply("我开水果摊的，能卖给你生瓜蛋子？")
+        }
+    })
 ```
 
 ### 指定处理函数
-处理函数是`func(*gonebot.Context, *gonebot.Action)`类型的函数。
+处理函数是`func(*gonebot.Context, *gonebot.Action)`类型的函数，通过调用`Handler.Handle(func)`函数来指定。
 
 细心的你可能已经发现了，中间件跟处理函数不就是同一个东西吗？没错，它们就是同一个东西，不过我们还是选择将它们从语义上区分开来，并希望把处理函数当作EndPoint。也就是说，在调用`Handle`指定处理函数之后，这个Handler就定型了，就不应该调用`Use`继续添加中间件了。
 
