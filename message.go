@@ -52,6 +52,8 @@ func (m *Message) Extend(msg t_MessageOrSegmentArray) (err error) {
 	switch msg := msg.(type) {
 	case Message:
 		m.ExtendMessage(msg)
+	case *Message:
+		m.ExtendMessage(*msg)
 	case []MessageSegment:
 		m.ExtendSegmentArray(msg)
 	default:
@@ -95,7 +97,7 @@ func (m Message) FilterByType(segmentType string) []MessageSegment {
 
 // 将这些参数转换成一个Message
 //
-// 参数类型限制为string、Message、MessageSegment、[]MessageSegment，
+// 参数类型限制为string、(*)Message、MessageSegment、[]MessageSegment，
 // 非上述类型的参数将被转换成一个Text消息段
 func MsgPrint(msgs ...interface{}) (msg Message) {
 	msg = Message{}
@@ -106,6 +108,9 @@ func MsgPrint(msgs ...interface{}) (msg Message) {
 
 		case Message:
 			msg.ExtendMessage(m)
+
+		case *Message:
+			msg.ExtendMessage(*m)
 
 		case MessageSegment:
 			msg.AppendSegment(m)
@@ -136,7 +141,9 @@ func MsgPrint(msgs ...interface{}) (msg Message) {
 	return
 }
 
-// 根据模板和参数生成消息对象。使用"{}"作为消息段的占位符。例如：
+// 根据模板和参数生成消息对象。参数过多过少都会返回error。
+//
+// 使用"{}"作为消息段的占位符。例如：
 //	Format("{}你好啊%s", At(114514), "李田所")
 //	// 返回：[{at:114514},{text:"你好啊李田所"}]
 // 如想"{}"不被解析为占位符，则使用"{{}}"。例如：
@@ -145,13 +152,15 @@ func MsgPrint(msgs ...interface{}) (msg Message) {
 func MsgPrintf(tmpl string, args ...interface{}) (msg Message, err error) {
 	// 将普通参数、消息段参数分离开来
 	argsNoSeg := make([]interface{}, 0, len(args))
-	argsSeg := make([]MessageSegment, 0, len(args))
+	argsToFormat := make([]interface{}, 0, len(args))
 	for _, arg := range args {
 		switch arg := arg.(type) {
 		case Message:
-			continue
+			argsToFormat = append(argsToFormat, arg)
+		case *Message:
+			argsToFormat = append(argsToFormat, arg)
 		case MessageSegment:
-			argsSeg = append(argsSeg, arg)
+			argsToFormat = append(argsToFormat, arg)
 		default:
 			argsNoSeg = append(argsNoSeg, arg)
 		}
@@ -167,26 +176,33 @@ func MsgPrintf(tmpl string, args ...interface{}) (msg Message, err error) {
 	count := 0
 	for j := i; j < len(formattedTemplate); {
 		if formattedTemplate[j] == '{' {
+			// 如果是"{{}}"，则认为是{}
 			if j+4 <= len(formattedTemplate) && formattedTemplate[j:j+4] == "{{}}" {
-				// 如果是"{{}}"，则认为是{}
 				builder.WriteString("{}")
 				j += 4
 				continue
 			}
-			// if formattedTemplate[j+1] == '{' {
-			// 	j += 2
-			// 	continue
-			// }
+
+			// 遇到一对大括号，则将大括号前面的字符串生成一个Text消息段
 			if j+1 <= len(formattedTemplate) && formattedTemplate[j+1] == '}' {
 				if i != j {
 					msg.AppendText(builder.String())
 					builder.Reset()
 				}
-				if count >= len(argsSeg) {
+				if count >= len(argsToFormat) {
 					err = fmt.Errorf("too few arguments for template: %s", tmpl)
 					return
 				}
-				msg.AppendSegment(argsSeg[count])
+
+				switch arg := argsToFormat[count].(type) {
+				case Message:
+					msg.ExtendMessage(arg)
+				case *Message:
+					msg.ExtendMessage(*arg)
+				case MessageSegment:
+					msg.AppendSegment(arg)
+				}
+
 				j += 2
 				i = j
 				count++
@@ -202,10 +218,19 @@ func MsgPrintf(tmpl string, args ...interface{}) (msg Message, err error) {
 		builder.Reset()
 	}
 
-	if count != len(argsSeg) {
+	if count != len(argsToFormat) {
 		err = fmt.Errorf("too many arguments for template: %s", tmpl)
 	}
 
+	return
+}
+
+// 作用同MsgPrintf，参数过多过少时会panic
+func MsgMustPrintf(tmpl string, args ...interface{}) (msg Message) {
+	msg, err := MsgPrintf(tmpl, args...)
+	if err != nil {
+		panic(err)
+	}
 	return
 }
 

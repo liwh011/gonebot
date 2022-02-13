@@ -68,6 +68,14 @@ func Test_Format(t *testing.T) {
 				return (len(msg) == 1 && msg[0].IsText() && msg[0].Data["text"] == "aa{}}")
 			},
 		},
+		{
+			"aa{}",
+			[]interface{}{MsgPrint("114514", AtAll())},
+			func(msg Message) bool {
+				t.Logf("%v", msg)
+				return true
+			},
+		},
 	}
 
 	for _, data := range testData {
