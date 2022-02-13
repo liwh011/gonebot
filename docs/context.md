@@ -37,7 +37,7 @@ engine.NewHandler(gonebot.EventNameGroupMessage).
     Use(gonebot.StartsWith("报告问题")).
     Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
         // 构造消息对象
-        msg := gonebot.MsgPrintf("来自%s报告的问题：{}", ctx.Event.GetSessionId(), *(ctx.Event.GetMessage()))
+        msg := gonebot.MsgMustPrintf("来自%s报告的问题：{}", ctx.Event.GetSessionId(), ctx.Event.GetMessage())
         // 调用SendPrivateMsg，私发给超管
         superUserId := 1919810
         ctx.Bot.SendPrivateMsg(superUserId, msg, false)
