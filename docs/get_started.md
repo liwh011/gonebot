@@ -122,7 +122,7 @@ h.Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
 - Context中含有当前Event、Bot实例、当前Handler以及存放自由数据的Map。Context提供了一些快速操作（如回复），也提供了一些向其中写入数据的函数，你的中间件可以写入数据以供处理函数使用。
 - Action中含有几个函数，它们与流程控制相关。例如：`AbortHandler`是中止当前Handler的执行，在编写先决条件时经常用到这个函数。`Next`是继续后续执行，执行完毕后从调用点后面继续运行，在用作后处理时常用。
 
-让我们一起来实操一下，写个卖瓜功能：
+让我们一起来实操一下，开始写个卖瓜功能：
 ```go
 // 为卖瓜编写一个中间件，看看顾客是否在找茬
 func CheckZhaoCha(ctx *gonebot.Context, act *gonebot.Action) {
@@ -134,7 +134,15 @@ func CheckZhaoCha(ctx *gonebot.Context, act *gonebot.Action) {
         }
     }
 }
+```
 
+### 指定处理函数
+处理函数是`func(*gonebot.Context, *gonebot.Action)`类型的函数，通过调用`Handler.Handle(func)`函数来指定。
+
+细心的你可能已经发现了，中间件跟处理函数不就是同一个东西吗？没错，它们就是同一个东西，不过我们还是选择将它们从语义上区分开来，并希望把处理函数当作EndPoint。也就是说，在调用`Handle`指定处理函数之后，这个Handler就定型了，就不应该调用`Use`继续添加中间件了。
+
+在处理函数中，你可以根据你的需要来调用Context提供的快速操作，或者通过Context中的Bot实例来调用其他的API，以实现机器人对事件的反应。你也可以调用Action中的函数来中断事件的传播。下面，我们继续完成卖瓜：
+```go
 engine.NewHandler(gonebot.EventNamePrivateMessage).
     Use(CheckZhaoCha).  // 使用刚刚写的找茬中间件
     Handle(func (ctx *gonebot.Context, act *gonebot.Action) {
@@ -145,11 +153,6 @@ engine.NewHandler(gonebot.EventNamePrivateMessage).
         }
     })
 ```
-
-### 指定处理函数
-处理函数是`func(*gonebot.Context, *gonebot.Action)`类型的函数，通过调用`Handler.Handle(func)`函数来指定。
-
-细心的你可能已经发现了，中间件跟处理函数不就是同一个东西吗？没错，它们就是同一个东西，不过我们还是选择将它们从语义上区分开来，并希望把处理函数当作EndPoint。也就是说，在调用`Handle`指定处理函数之后，这个Handler就定型了，就不应该调用`Use`继续添加中间件了。
 
 事实上，处理函数不是必须要指定的。由于在结构上所有Handler构成了一棵以Engine为根的树，如果你的Handler并非叶子结点，你完全可以不指定处理函数，而仅仅把它用作一个容器，为这个容器下的所有子Handler提供共同的中间件。关于Handler具体结构的内容将在后续文档说明。
 
