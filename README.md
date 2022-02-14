@@ -13,3 +13,4 @@
 - [上下文](./docs/context.md)
 - [流程控制](./docs/process_flow.md)
 - [配置](./docs/config.md)
+- [模块化](./docs/plugin.md)
