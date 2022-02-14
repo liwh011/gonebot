@@ -13,9 +13,9 @@ func init() {
 
 var info = gonebot.PluginInfo {
     Name:        "HelloWorld",
-    Description: "一个插件样例"
-    Version:     "0.0.1"
-    Author:      "liwh011"
+    Description: "一个插件样例",
+    Version:     "0.0.1",
+    Author:      "liwh011",
 }
 
 // 需要实现Plugin接口。
