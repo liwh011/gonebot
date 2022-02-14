@@ -11,7 +11,7 @@ type PluginInfo struct {
 
 type Plugin interface {
 	Init(*Engine)
-	Info() *PluginInfo
+	Info() PluginInfo
 }
 
 var plugins = make(map[string]Plugin)
