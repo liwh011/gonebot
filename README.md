@@ -12,3 +12,4 @@
 - [交互](./docs/interact.md)
 - [上下文](./docs/context.md)
 - [流程控制](./docs/process_flow.md)
+- [配置](./docs/config.md)
