@@ -17,7 +17,7 @@ func NewEngine(cfg Config) *Engine {
 	engine.Config = cfg.GetBaseConfig()
 
 	engine.ws = NewWebsocketClient(engine.Config)
-	engine.bot = NewBot(engine.ws, cfg)
+	engine.bot = NewBot(engine.ws, engine.Config)
 
 	engine.Handler = Handler{
 		subHandlers: make(map[EventName][]*Handler),

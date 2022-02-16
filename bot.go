@@ -3,14 +3,12 @@ package gonebot
 type Bot struct {
 	driver *WebsocketClient
 
-	selfId      int64
-	accessToken string
+	selfId int64
 }
 
-func NewBot(d *WebsocketClient, cfg Config) *Bot {
+func NewBot(d *WebsocketClient, cfg *BaseConfig) *Bot {
 	bot := &Bot{}
 	bot.driver = d
-	bot.accessToken = cfg.GetBaseConfig().Websocket.AccessToken
 	return bot
 }
 
