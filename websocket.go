@@ -1,9 +1,9 @@
 package gonebot
 
-
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -31,8 +31,9 @@ type response struct {
 }
 
 type WebsocketClient struct {
-	conn *websocket.Conn
-	url  string // websocket服务器地址
+	conn        *websocket.Conn
+	url         string // websocket服务器地址
+	accessToken string
 
 	requestChan  chan request  // 发送消息通道
 	responseChan chan response // 接收消息通道
@@ -53,15 +54,17 @@ type subscriber struct {
 	recvChan chan []byte
 }
 
-func NewWebsocketClient(url string, timeout int) *WebsocketClient {
+func NewWebsocketClient(cfg *BaseConfig) *WebsocketClient {
+	url := fmt.Sprintf("ws://%s:%d/", cfg.Websocket.Host, cfg.Websocket.Port)
 	return &WebsocketClient{
 		url:              url,
+		accessToken:      cfg.Websocket.AccessToken,
 		conn:             nil,
 		requestChan:      make(chan request, 10),
 		responseChan:     make(chan response, 10),
 		eventChan:        make(chan []byte, 10),
 		isAlive:          false,
-		apiCallTimeout:   timeout,
+		apiCallTimeout:   cfg.Websocket.ApiCallTimeout,
 		reconnectTimeout: 3,
 		seqNum:           1,
 		seqNumLock:       sync.Mutex{},
@@ -72,7 +75,10 @@ func (wsc *WebsocketClient) connect() {
 	var err error
 
 	log.Infof("正在连接到Websocket服务器：%s", wsc.url)
-	wsc.conn, _, err = websocket.DefaultDialer.Dial(wsc.url, nil)
+	header := http.Header{
+		"Authorization": []string{fmt.Sprintf("Bearer %s", wsc.accessToken)},
+	}
+	wsc.conn, _, err = websocket.DefaultDialer.Dial(wsc.url, header)
 	if err != nil {
 		log.Errorf("连接到Websocket服务器失败：%v", err)
 		return

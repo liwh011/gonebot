@@ -1,8 +1,6 @@
 package gonebot
 
 import (
-	"fmt"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
@@ -18,9 +16,7 @@ func NewEngine(cfg Config) *Engine {
 	engine := &Engine{}
 	engine.Config = cfg.GetBaseConfig()
 
-	wsAddr := fmt.Sprintf("ws://%s:%d/", engine.Config.Websocket.Host, engine.Config.Websocket.Port)
-	engine.ws = NewWebsocketClient(wsAddr, engine.Config.Websocket.ApiCallTimeout)
-
+	engine.ws = NewWebsocketClient(engine.Config)
 	engine.bot = NewBot(engine.ws, cfg)
 
 	engine.Handler = Handler{
