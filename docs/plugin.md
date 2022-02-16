@@ -6,9 +6,13 @@
 ```go
 package helloworld
 
+import (
+    "github.com/liwh011/gonebot"
+)
+
 func init() {
-    // 注册插件
-    gonebot.RegisterPlugin(HelloWorld{})
+    // 注册插件，传入插件的指针。
+    gonebot.RegisterPlugin(new(HelloWorld))
 }
 
 var info = gonebot.PluginInfo {
@@ -22,12 +26,12 @@ var info = gonebot.PluginInfo {
 type HelloWorld struct {}
 
 // 返回插件信息
-func (p HelloWorld) Info() gonebot.PluginInfo {
+func (p *HelloWorld) Info() gonebot.PluginInfo {
     return info
 }
 
 // 初始化插件
-func (p HelloWorld) Init(engine *gonebot.Engine) {
+func (p *HelloWorld) Init(engine *gonebot.Engine) {
     engine.
         NewHandler(gonebot.EventNamePrivateMessage).
         Use(gonebot.Keyword("你好")).
@@ -49,9 +53,8 @@ func onLaopo(ctx *gonebot.Context, act *gonebot.Action) {
 ```
 
 插件是一个实现了`Plugin`接口的结构体。这个接口需要两个函数：
-- `Info` 用于获取插件信息。插件信息没有什么功能性作用，只是作为一个介绍。
+- `Info` 用于获取插件信息。插件信息没有什么功能性作用，只是作为一个介绍。一个插件以“名字@作者”标识，本例中为`"HelloWorld@liwh011"`，不应出现冲突。
 - `Init` 用于初始化插件。这个函数接受一个engine参数，表示插件要挂载在的Engine实例。在这个函数中，你可以尽情添加你的事件处理器。
-
 
 根据Go Module的特性，包被导入时会执行`init`函数。因此你还需要在`init`函数中调用`gonebot.RegisterPlugin`来注册你的插件，这样才能被识别并使用。
 

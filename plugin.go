@@ -1,6 +1,9 @@
 package gonebot
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 type PluginInfo struct {
 	Name        string
@@ -20,18 +23,56 @@ func RegisterPlugin(plugin Plugin) {
 	if plugin == nil {
 		panic("插件不能为nil")
 	}
-	if p, ok := plugins[plugin.Info().Name]; ok {
-		panic(fmt.Errorf("插件 %s 已经注册。该插件为 %v", plugin.Info().Name, p))
+
+	info := plugin.Info()
+	id := fmt.Sprintf("%s@%s", info.Name, info.Author)
+	if p, ok := plugins[id]; ok {
+		panic(fmt.Errorf("插件 %s 已经注册。该插件为 %v", id, p.Info()))
 	}
-	plugins[plugin.Info().Name] = plugin
+
+	plugins[id] = plugin
 }
 
-func GetPlugin(name string) Plugin {
-	return plugins[name]
+func GetPlugin(id string) Plugin {
+	return plugins[id]
 }
 
 func InitPlugins(engine *Engine) {
-	for _, plugin := range plugins {
-		plugin.Init(engine)
+	cfg := engine.Config
+
+	// 默认加载每一个插件。如果配置中指定了某插件的启用状态，则按配置的来。
+	for id, plugin := range plugins {
+		if enable, ok := cfg.Plugin.Enable[id]; ok && enable || !ok {
+			fillPluginConfigIntoStruct(plugin, cfg.Plugin.Config[id])
+			plugin.Init(engine)
+		}
 	}
+}
+
+func fillPluginConfigIntoStruct(plugin Plugin, cfg PluginConfig) {
+	if plugin == nil {
+		return
+	}
+
+	if cfg == nil {
+		return
+	}
+
+	value := reflect.ValueOf(plugin)
+	if value.Kind() != reflect.Ptr {
+		panic(fmt.Errorf("传入了不是指针的参数，类型：%T（需要传递指针）", plugin))
+	}
+
+	value = value.Elem()
+	cfgField := value.FieldByName("Config")
+	if !cfgField.IsValid() {
+		return
+	}
+
+	if cfgField.Kind() != reflect.Struct {
+		return
+	}
+
+	mapToStruct(cfg, cfgField.Addr().Interface())
+
 }

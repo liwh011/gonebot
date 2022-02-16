@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 func boolToInt01(b bool) int {
@@ -78,4 +79,93 @@ func isEventRelativeToBot(event I_Event) bool {
 		}
 	}
 	return false
+}
+
+func mapToStruct(m map[string]interface{}, s interface{}) {
+	sValue := reflect.ValueOf(s).Elem()
+	sType := sValue.Type()
+
+	for i := 0; i < sValue.NumField(); i++ {
+		f := sValue.Field(i)
+		if !f.CanSet() {
+			continue
+		}
+		
+		fName := sType.Field(i).Name
+		names := []string{
+			strings.Split(sType.Field(i).Tag.Get("json"), ",")[0], // json tag
+			strings.Split(sType.Field(i).Tag.Get("yaml"), ",")[0], // yaml tag
+			camelCaseToSnakeCase(fName),                           // snake_case
+			strings.ToLower(fName[:1]) + fName[1:],                // camelCase
+			fName,                                                 // original (CamelCase)
+		}
+		for _, name := range names {
+			if name == "" {
+				continue
+			}
+
+			if v, ok := m[name]; ok {
+				typeConvert(v, f)
+				break
+			}
+		}
+	}
+
+}
+
+func camelCaseToSnakeCase(s string) string {
+	var res []rune
+	for i, r := range s {
+		if i == 0 {
+			res = append(res, unicode.ToLower(r))
+		} else if unicode.IsUpper(r) {
+			res = append(res, '_')
+			res = append(res, unicode.ToLower(r))
+		} else {
+			res = append(res, r)
+		}
+	}
+	return string(res)
+}
+
+func typeConvert(v interface{}, f reflect.Value) {
+	switch f.Kind() {
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int,
+		reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint,
+		reflect.Float32, reflect.Float64:
+		f.Set(reflect.ValueOf(v).Convert(f.Type()))
+
+	case reflect.Struct:
+		mapToStruct(v.(map[string]interface{}), f.Addr().Interface())
+
+	case reflect.Ptr:
+		elemType := f.Type().Elem() // 获取指针指向的元素类型
+		nv := reflect.New(elemType) // 创建类型为elemType的零值
+		f.Set(nv)                   // 设置指针指向nv
+		typeConvert(v, f.Elem())
+
+	case reflect.Slice:
+		newSlice := reflect.MakeSlice(f.Type(), 0, 0)
+		vv := reflect.ValueOf(v)
+		for i := 0; i < vv.Len(); i++ {
+			nv := reflect.New(f.Type().Elem())
+			typeConvert(vv.Index(i).Interface(), nv.Elem())
+			newSlice = reflect.Append(newSlice, nv.Elem())
+		}
+		f.Set(newSlice)
+
+	case reflect.Map:
+		newMap := reflect.MakeMap(f.Type())
+		vv := reflect.ValueOf(v)
+		for _, k := range vv.MapKeys() {
+			nv := reflect.New(f.Type().Elem())
+			typeConvert(vv.MapIndex(k).Interface(), nv.Elem())
+			newMap.SetMapIndex(k, nv.Elem())
+		}
+		f.Set(newMap)
+
+	default:
+		f.Set(reflect.ValueOf(v))
+	}
+
 }

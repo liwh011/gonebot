@@ -9,17 +9,17 @@ import (
 
 type Engine struct {
 	Handler
-	Config Config
+	Config *BaseConfig
 	bot    *Bot
 	ws     *WebsocketClient
 }
 
 func NewEngine(cfg Config) *Engine {
 	engine := &Engine{}
-	engine.Config = cfg
+	engine.Config = cfg.GetBaseConfig()
 
-	wsAddr := fmt.Sprintf("ws://%s:%d/", cfg.GetBaseConfig().Websocket.Host, cfg.GetBaseConfig().Websocket.Port)
-	engine.ws = NewWebsocketClient(wsAddr, cfg.GetBaseConfig().Websocket.ApiCallTimeout)
+	wsAddr := fmt.Sprintf("ws://%s:%d/", engine.Config.Websocket.Host, engine.Config.Websocket.Port)
+	engine.ws = NewWebsocketClient(wsAddr, engine.Config.Websocket.ApiCallTimeout)
 
 	engine.bot = NewBot(engine.ws, cfg)
 
