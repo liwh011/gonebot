@@ -15,7 +15,7 @@ plugin:
 
 
 ## 配置
-如果你的插件需要外部配置，请为结构体添加`Config`字段，名字必须为`Config`。框架将会使用反射，在`Init`被调用前准备好Config的内容（不是模块的`init`），因此你可以尽情使用这个Config，不用担心加载问题。
+如果你的插件需要外部配置，请向创建函数传入结构体指针。框架将会使用反射，在`onInit`被调用前准备好配置（不是模块的`init`），因此你不用担心加载问题。
 
 如果配置需要默认值，请在注册插件之前手动初始化默认值，配置文件中未出现的字段将不会覆盖默认值。
 
@@ -29,30 +29,25 @@ type HelloWorldConfig struct {
     CamelCase string
 }
 
-// 初始化默认配置
-var defaultConfig = HelloWorldConfig {
-    "Hello": 12345,
-    "World": "helloworld",
-}
-
-type HelloWorld struct {
-    // 如果你的插件有外部配置，请添加`Config`字段（一定要叫Config）。
-    // 将在Init函数被调用前准备好这个Config
-    // 如果没有可以不用。
-    Config HelloWorldConfig
-}
+var plugin *gonebot.Plugin
 
 func init() {
-    p := HelloWorld {
-        Config: defaultConfig
+    // 初始化默认配置
+    cfg := HelloWorldConfig {
+        "Hello": 12345,
+        "World": "helloworld",
     }
-    // 注册插件，传入插件的指针。
-    gonebot.RegisterPlugin(&p)
+    
+    // ...略去info的定义
+
+    // 传入指针
+    plugin = gonebot.NewPlugin(info, &cfg, onInit)
 }
 
 // 初始化插件
-func (p *HelloWorld) Init(engine *gonebot.Engine) {
+func onInit(engine *gonebot.Engine) {
     // 在这里，Config已经加载好了，可以使用了。
+    cfg := plugin.GetConfig().(*HelloWorldConfig)
 }
 ```
 

@@ -5,8 +5,15 @@ import (
 	"testing"
 )
 
-type TestPlugin struct {
-	Config struct {
+func Test_convertMapToConfig(t *testing.T) {
+	info := PluginInfo{
+		Name:        "test",
+		Description: "test",
+		Version:     "test",
+		Author:      "test",
+	}
+
+	type Config struct {
 		Id     int64
 		Name   string
 		Enable bool
@@ -22,22 +29,9 @@ type TestPlugin struct {
 			Aaa map[string]int64
 		}
 	}
-}
-
-func (p TestPlugin) Info() PluginInfo {
-	return PluginInfo{
-		Name:        "test",
-		Description: "test",
-		Version:     "test",
-		Author:      "test",
-	}
-}
-
-func (p TestPlugin) Init(engine *Engine) {}
-
-func Test_fillPluginConfigIntoStruct(t *testing.T) {
-	p := TestPlugin{}
-	fillPluginConfigIntoStruct(&p, PluginConfig{
+	cfg := Config{}
+	p := NewPlugin(info, &cfg, nil)
+	p.convertMapToConfig(PluginConfig{
 		"id":     1,
 		"name":   "test",
 		"enable": true,
@@ -54,5 +48,6 @@ func Test_fillPluginConfigIntoStruct(t *testing.T) {
 			},
 		},
 	})
-	fmt.Println(p.Config)
+	fmt.Println(cfg)
+	fmt.Println(p.GetConfig())
 }
