@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
@@ -42,6 +43,34 @@ const (
 	EventNameMetaLifecycle   EventName = "meta_event.lifecycle"
 	EventNameMetaHeartbeat   EventName = "meta_event.heartbeat"
 )
+
+var eventTypeMap map[string]I_Event
+
+func init() {
+	eventTypeMap = map[string]I_Event{
+		"message.private":          &PrivateMessageEvent{},
+		"message.group":            &GroupMessageEvent{},
+		"notice.group_upload":      &GroupUploadNoticeEvent{},
+		"notice.group_admin":       &GroupAdminNoticeEvent{},
+		"notice.group_decrease":    &GroupDecreaseNoticeEvent{},
+		"notice.group_increase":    &GroupIncreaseNoticeEvent{},
+		"notice.group_ban":         &GroupBanNoticeEvent{},
+		"notice.friend_add":        &FriendAddNoticeEvent{},
+		"notice.group_recall":      &GroupRecallNoticeEvent{},
+		"notice.friend_recall":     &FriendRecallNoticeEvent{},
+		"notice.notify.poke":       &PokeNoticeEvent{},
+		"notice.notify.lucky_king": &LuckyKingNoticeEvent{},
+		"notice.notify.honor":      &HonorNoticeEvent{},
+		"notice.group_card":        &GroupCardNoticeEvent{},
+		"notice.offline_file":      &OfflineFileNoticeEvent{},
+		"notice.client_status":     &ClientStatusNoticeEvent{},
+		"notice.essence":           &EssenceNoticeEvent{},
+		"request.friend":           &FriendRequestEvent{},
+		"request.group":            &GroupRequestEvent{},
+		"meta_event.lifecycle":     &LifeCycleMetaEvent{},
+		"meta_event.heartbeat":     &HeartbeatMetaEvent{},
+	}
+}
 
 type I_Event interface {
 	GetPostType() string         // 获取事件的上报类型，有message, notice, request, meta_event
@@ -126,46 +155,13 @@ func convertJsonObjectToEvent(obj gjson.Result) I_Event {
 	}
 
 	var ev I_Event
-	switch typeName {
-	case "message.private":
-		ev = &PrivateMessageEvent{}
-	case "message.group":
-		ev = &GroupMessageEvent{}
-	case "notice.group_upload":
-		ev = &GroupUploadNoticeEvent{}
-	case "notice.group_admin":
-		ev = &GroupAdminNoticeEvent{}
-	case "notice.group_decrease":
-		ev = &GroupDecreaseNoticeEvent{}
-	case "notice.group_increase":
-		ev = &GroupIncreaseNoticeEvent{}
-	case "notice.group_ban":
-		ev = &GroupBanNoticeEvent{}
-	case "notice.friend_add":
-		ev = &FriendAddNoticeEvent{}
-	case "notice.group_recall":
-		ev = &GroupRecallNoticeEvent{}
-	case "notice.friend_recall":
-		ev = &FriendRecallNoticeEvent{}
-	case "notice.notify":
-		switch subType {
-		case "poke":
-			ev = &PokeNoticeEvent{}
-		case "lucky_king":
-			ev = &LuckyKingNoticeEvent{}
-		case "honor":
-			ev = &HonorNoticeEvent{}
-		}
-	case "request.friend":
-		ev = &FriendRequestEvent{}
-	case "request.group":
-		ev = &GroupRequestEvent{}
-	case "meta_event.lifecycle":
-		ev = &LifeCycleMetaEvent{}
-	case "meta_event.heartbeat":
-		ev = &HeartbeatMetaEvent{}
-	default:
-		panic(fmt.Sprintf("unknown event type: %s", typeName))
+	if event, ok := eventTypeMap[fullTypeName]; ok {
+		ev = event
+	} else if event, ok := eventTypeMap[typeName]; ok {
+		ev = event
+	} else {
+		logrus.Warnf("暂未支持的事件类型 %s ，将转换为基本事件。", fullTypeName)
+		ev = &Event{}
 	}
 
 	// 借助json库将JSON对象中的字段赋值给Event对象，懒得自个写反射了
@@ -483,6 +479,50 @@ func (e *HonorNoticeEvent) GetSessionId() string {
 func (e *HonorNoticeEvent) GetSubType() string {
 	return e.SubType
 }
+
+//  群成员名片更新
+type GroupCardNoticeEvent struct {
+	NoticeEvent
+	GroupId int64  `json:"group_id"` // 群号
+	UserId  int64  `json:"user_id"`  // 群成员 QQ 号
+	CardNew string `json:"card_new"` // 新名片
+	CardOld string `json:"card_old"` // 旧名片
+}
+
+//  接收到离线文件
+type OfflineFileNoticeEvent struct {
+	NoticeEvent
+	UserId int64 `json:"user_id"` // 用户 ID
+	File   struct {
+		Name string `json:"name"` // 文件名
+		Size int64  `json:"size"` // 文件大小
+		Url  string `json:"url"`  // 下载链接
+	} `json:"file"`
+}
+
+//  其他客户端在线状态变更
+type ClientStatusNoticeEvent struct {
+	NoticeEvent
+	Client struct {
+		AppId      int64  `json:"app_id"`      // 客户端 ID
+		DeviceName string `json:"device_name"` // 设备名称
+		DeviceKind string `json:"device_kind"` // 设备类型
+	} `json:"client"`
+	Online bool `json:"online"` // 在线状态
+}
+
+//  精华消息
+type EssenceNoticeEvent struct {
+	NoticeEvent
+	SubType    string `json:"sub_type"` // 通知子类型，essence
+	SenderId   int64  `json:"sender_id"`
+	OperatorId int64  `json:"operator_id"`
+	MessageId  int32  `json:"message_id"`
+}
+
+// ==========================
+// 请求事件
+// ==========================
 
 // 加好友请求事件
 type FriendRequestEvent struct {
