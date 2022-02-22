@@ -49,5 +49,5 @@ func Test_convertMapToConfig(t *testing.T) {
 		},
 	})
 	fmt.Println(cfg)
-	fmt.Println(p.GetConfig())
+	fmt.Println(p.Config)
 }

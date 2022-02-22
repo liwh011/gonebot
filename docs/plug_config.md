@@ -29,8 +29,6 @@ type HelloWorldConfig struct {
     CamelCase string
 }
 
-var plugin *gonebot.Plugin
-
 func init() {
     // 初始化默认配置
     cfg := HelloWorldConfig {
@@ -41,13 +39,14 @@ func init() {
     // ...略去info的定义
 
     // 传入指针
-    plugin = gonebot.NewPlugin(info, &cfg, onInit)
+    gonebot.NewPlugin(info, &cfg, onInit)
 }
 
 // 初始化插件
-func onInit(engine *gonebot.Engine) {
+func onInit(p *gonebot.Plugin) {
     // 在这里，Config已经加载好了，可以使用了。
-    cfg := plugin.GetConfig().(*HelloWorldConfig)
+    cfg := p.Config.(*HelloWorldConfig)
+    // fmt.Println(cfg)
 }
 ```
 
