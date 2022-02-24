@@ -34,9 +34,10 @@ func (h *Handler) Handle(f HandlerFunc) {
 }
 
 // 添加子Handler
-func (h *Handler) addSubHandler(handler *Handler, eventType ...EventName) {
+func (h *Handler) addSubHandler(subHandler *Handler, eventType ...EventName) {
+	subHandler.parent = h
 	for _, event := range eventType {
-		h.subHandlers[event] = append(h.subHandlers[event], handler)
+		h.subHandlers[event] = append(h.subHandlers[event], subHandler)
 	}
 }
 
