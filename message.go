@@ -42,7 +42,7 @@ func (m *Message) AppendSegment(seg MessageSegment) {
 
 // 添加一个字符串到消息数组末尾
 func (m *Message) AppendText(t string) {
-	m.AppendSegment(Text(t))
+	m.AppendSegment(MessageSegmentFactory.Text(t))
 }
 
 type t_MessageOrSegmentArray interface{}

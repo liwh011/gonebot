@@ -35,8 +35,12 @@ func (seg MessageSegment) String() string {
 
 }
 
+type messageSegmentFactory struct{}
+
+var MessageSegmentFactory = messageSegmentFactory{}
+
 // 纯文本
-func Text(text string) MessageSegment {
+func (f messageSegmentFactory) Text(text string) MessageSegment {
 	return MessageSegment{
 		Type: "text",
 		Data: msgSegData{
@@ -46,7 +50,7 @@ func Text(text string) MessageSegment {
 }
 
 // 表情。id为QQ表情ID
-func Face(id int) MessageSegment {
+func (f messageSegmentFactory) Face(id int) MessageSegment {
 	return MessageSegment{
 		Type: "face",
 		Data: msgSegData{
@@ -58,7 +62,7 @@ func Face(id int) MessageSegment {
 type imageOptions msgSegData
 
 // 图片的可选参数
-func ImageOptions() *imageOptions {
+func (f messageSegmentFactory) ImageOptions() *imageOptions {
 	return (&imageOptions{}).SetCache(true).SetProxy(true)
 }
 
@@ -87,9 +91,9 @@ func (p *imageOptions) SetTimeout(t int) *imageOptions {
 }
 
 // 图片。file可以为网络URL、本地URI、Base64
-func Image(file string, optional *imageOptions) MessageSegment {
+func (f messageSegmentFactory) Image(file string, optional *imageOptions) MessageSegment {
 	if optional == nil {
-		optional = ImageOptions()
+		optional = f.ImageOptions()
 	}
 	data := *optional
 	data["file"] = file
@@ -102,7 +106,7 @@ func Image(file string, optional *imageOptions) MessageSegment {
 type recordOptions msgSegData
 
 // 语音的可选参数
-func RecordOptions() *recordOptions {
+func (f messageSegmentFactory) RecordOptions() *recordOptions {
 	return (&recordOptions{}).SetCache(true).SetProxy(true).SetMagic(false)
 }
 
@@ -131,9 +135,9 @@ func (p *recordOptions) SetTimeout(t int) *recordOptions {
 }
 
 // 语音
-func Record(file string, optional *recordOptions) MessageSegment {
+func (f messageSegmentFactory) Record(file string, optional *recordOptions) MessageSegment {
 	if optional == nil {
-		optional = RecordOptions()
+		optional = f.RecordOptions()
 	}
 	data := msgSegData(*optional)
 	data["file"] = file
@@ -147,7 +151,7 @@ func Record(file string, optional *recordOptions) MessageSegment {
 type videoOptions msgSegData
 
 // 视频的可选参数
-func VideoOptions() *videoOptions {
+func (f messageSegmentFactory) VideoOptions() *videoOptions {
 	return (&videoOptions{}).SetCache(true).SetProxy(true)
 }
 
@@ -170,9 +174,9 @@ func (p *videoOptions) SetTimeout(t int) *videoOptions {
 }
 
 // 视频
-func Video(file string, optional *videoOptions) MessageSegment {
+func (f messageSegmentFactory) Video(file string, optional *videoOptions) MessageSegment {
 	if optional == nil {
-		optional = VideoOptions()
+		optional = f.VideoOptions()
 	}
 	data := msgSegData(*optional)
 	data["file"] = file
@@ -184,7 +188,7 @@ func Video(file string, optional *videoOptions) MessageSegment {
 }
 
 // 群聊At指定QQ
-func AtSomeone(qq int64) MessageSegment {
+func (f messageSegmentFactory) AtSomeone(qq int64) MessageSegment {
 	return MessageSegment{
 		Type: "at",
 		Data: msgSegData{
@@ -194,7 +198,7 @@ func AtSomeone(qq int64) MessageSegment {
 }
 
 // 群聊At全体
-func AtAll() MessageSegment {
+func (f messageSegmentFactory) AtAll() MessageSegment {
 	return MessageSegment{
 		Type: "at",
 		Data: msgSegData{
@@ -204,7 +208,7 @@ func AtAll() MessageSegment {
 }
 
 // 猜拳魔法表情
-func Rps() MessageSegment {
+func (f messageSegmentFactory) Rps() MessageSegment {
 	return MessageSegment{
 		Type: "rps",
 		Data: msgSegData{},
@@ -212,7 +216,7 @@ func Rps() MessageSegment {
 }
 
 // 掷骰子魔法表情
-func Dice() MessageSegment {
+func (f messageSegmentFactory) Dice() MessageSegment {
 	return MessageSegment{
 		Type: "dice",
 		Data: msgSegData{},
@@ -220,7 +224,7 @@ func Dice() MessageSegment {
 }
 
 // 窗口抖动（戳一戳）
-func Shake() MessageSegment {
+func (f messageSegmentFactory) Shake() MessageSegment {
 	return MessageSegment{
 		Type: "shake",
 		Data: msgSegData{},
@@ -228,7 +232,7 @@ func Shake() MessageSegment {
 }
 
 // 戳一戳
-func Poke(type_, id int) MessageSegment {
+func (f messageSegmentFactory) Poke(type_, id int) MessageSegment {
 	return MessageSegment{
 		Type: "poke",
 		Data: msgSegData{
@@ -239,7 +243,7 @@ func Poke(type_, id int) MessageSegment {
 }
 
 // 匿名发消息
-func AnonymousSegment(ignore bool) MessageSegment {
+func (f messageSegmentFactory) AnonymousSegment(ignore bool) MessageSegment {
 	return MessageSegment{
 		Type: "anonymous",
 		Data: msgSegData{
@@ -250,7 +254,7 @@ func AnonymousSegment(ignore bool) MessageSegment {
 
 type shareOptions msgSegData
 
-func ShareOptions() *shareOptions {
+func (f messageSegmentFactory) ShareOptions() *shareOptions {
 	return &shareOptions{}
 }
 
@@ -267,9 +271,9 @@ func (p *imageOptions) SetImage(image string) *imageOptions {
 }
 
 // 链接分享
-func Share(url, title string, optional *shareOptions) MessageSegment {
+func (f messageSegmentFactory) Share(url, title string, optional *shareOptions) MessageSegment {
 	if optional == nil {
-		optional = ShareOptions()
+		optional = f.ShareOptions()
 	}
 	data := msgSegData(*optional)
 	data["url"] = url
@@ -282,7 +286,7 @@ func Share(url, title string, optional *shareOptions) MessageSegment {
 }
 
 // 推荐好友
-func ContactQQ(id int64) MessageSegment {
+func (f messageSegmentFactory) ContactQQ(id int64) MessageSegment {
 	return MessageSegment{
 		Type: "contact",
 		Data: msgSegData{
@@ -293,7 +297,7 @@ func ContactQQ(id int64) MessageSegment {
 }
 
 // 推荐群
-func ContactGroup(id int64) MessageSegment {
+func (f messageSegmentFactory) ContactGroup(id int64) MessageSegment {
 	return MessageSegment{
 		Type: "contact",
 		Data: msgSegData{
@@ -305,7 +309,7 @@ func ContactGroup(id int64) MessageSegment {
 
 type locationOptions msgSegData
 
-func LocationOptions() *locationOptions {
+func (f messageSegmentFactory) LocationOptions() *locationOptions {
 	return &locationOptions{}
 }
 
@@ -322,9 +326,9 @@ func (p *locationOptions) SetContent(content string) *locationOptions {
 }
 
 // 位置
-func Location(lat, lng float64, options *locationOptions) MessageSegment {
+func (f messageSegmentFactory) Location(lat, lng float64, options *locationOptions) MessageSegment {
 	if options == nil {
-		options = LocationOptions()
+		options = f.LocationOptions()
 	}
 	data := msgSegData(*options)
 	data["lat"] = strconv.FormatFloat(lat, 'f', -1, 64)
@@ -343,7 +347,7 @@ const (
 )
 
 // 音乐分享
-func Music(id, type_ string) MessageSegment {
+func (f messageSegmentFactory) Music(id, type_ string) MessageSegment {
 	return MessageSegment{
 		Type: "music",
 		Data: msgSegData{
@@ -355,7 +359,7 @@ func Music(id, type_ string) MessageSegment {
 
 type customMusicParams msgSegData
 
-func CustomMusicParams() *customMusicParams {
+func (f messageSegmentFactory) CustomMusicParams() *customMusicParams {
 	return &customMusicParams{}
 }
 
@@ -372,9 +376,9 @@ func (p *customMusicParams) SetImage(image string) *customMusicParams {
 }
 
 // 音乐自定义分享
-func CustomMusic(url, title, audioUrl string, optional *customMusicParams) MessageSegment {
+func (f messageSegmentFactory) CustomMusic(url, title, audioUrl string, optional *customMusicParams) MessageSegment {
 	if optional == nil {
-		optional = CustomMusicParams()
+		optional = f.CustomMusicParams()
 	}
 	data := msgSegData(*optional)
 	data["url"] = url
@@ -388,7 +392,7 @@ func CustomMusic(url, title, audioUrl string, optional *customMusicParams) Messa
 }
 
 // 回复
-func Reply(id int64) MessageSegment {
+func (f messageSegmentFactory) Reply(id int64) MessageSegment {
 	return MessageSegment{
 		Type: "reply",
 		Data: msgSegData{
@@ -398,7 +402,7 @@ func Reply(id int64) MessageSegment {
 }
 
 // 合并转发节点
-func Node(id int64) MessageSegment {
+func (f messageSegmentFactory) Node(id int64) MessageSegment {
 	return MessageSegment{
 		Type: "node",
 		Data: msgSegData{
@@ -408,7 +412,7 @@ func Node(id int64) MessageSegment {
 }
 
 // 合并转发自定义节点
-func NodeCustom(userId int64, nickname string, content Message) MessageSegment {
+func (f messageSegmentFactory) NodeCustom(userId int64, nickname string, content Message) MessageSegment {
 	return MessageSegment{
 		Type: "node",
 		Data: msgSegData{
@@ -420,7 +424,7 @@ func NodeCustom(userId int64, nickname string, content Message) MessageSegment {
 }
 
 // XML 消息
-func XML(xml string) MessageSegment {
+func (f messageSegmentFactory) XML(xml string) MessageSegment {
 	return MessageSegment{
 		Type: "xml",
 		Data: msgSegData{
@@ -430,7 +434,7 @@ func XML(xml string) MessageSegment {
 }
 
 // JSON 消息
-func JSON(json string) MessageSegment {
+func (f messageSegmentFactory) JSON(json string) MessageSegment {
 	return MessageSegment{
 		Type: "json",
 		Data: msgSegData{
@@ -440,7 +444,7 @@ func JSON(json string) MessageSegment {
 }
 
 //  文本转语音
-func TTS(text string) MessageSegment {
+func (f messageSegmentFactory) TTS(text string) MessageSegment {
 	return MessageSegment{
 		Type: "tts",
 		Data: msgSegData{
