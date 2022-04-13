@@ -63,16 +63,24 @@ func (pm *pluginManager) InitPlugins(engine *Engine) {
 }
 
 func (pm *pluginManager) GetPluginById(id string) Plugin {
-	return pm.plugins[id]
+	if ret, ok := pm.plugins[id]; ok {
+		return ret
+	} else {
+		return nil
+	}
 }
 
 func (pm *pluginManager) GetPlugin(name, author string) Plugin {
 	id := fmt.Sprintf("%s@%s", name, author)
-	return pm.plugins[id]
+	return pm.GetPluginById(id)
 }
 
 func (pm *pluginManager) GetPluginConfig(plugin Plugin) interface{} {
-	return pm.pluginConfigStructs[getPluginId(plugin)]
+	if ret, ok := pm.pluginConfigStructs[getPluginId(plugin)]; ok {
+		return ret
+	} else {
+		return nil
+	}
 }
 
 // 注册插件。插件配置结构体pluginConfig可选，使用反射映射到字段，无则传nil
@@ -100,7 +108,8 @@ type Plugin interface {
 
 // 获取插件的唯一标识，格式为：“插件名@作者”
 func getPluginId(plugin Plugin) string {
-	return fmt.Sprintf("%s@%s", plugin.GetPluginInfo().Name, plugin.GetPluginInfo().Author)
+	info := plugin.GetPluginInfo()
+	return fmt.Sprintf("%s@%s", info.Name, info.Author)
 }
 
 // Engine对象的代理，仅提供有限的访问。
