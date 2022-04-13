@@ -15,12 +15,17 @@ plugin:
 
 
 ## 配置
-如果你的插件需要外部配置，请向创建函数传入结构体指针。框架将会使用反射，在`onInit`被调用前准备好配置（不是模块的`init`），因此你不用担心加载问题。
+如果你的插件需要外部配置，请向注册函数传入结构体指针。
 
 如果配置需要默认值，请在注册插件之前手动初始化默认值，配置文件中未出现的字段将不会覆盖默认值。
 
 配置文件中的字段风格可以使用大驼峰、小驼峰、蛇形，框架将会为你自动转换。
+
+**注意：配置结构体仅在插件的`Init`函数被调用时及被调用后可用，在此之前它不会被填充任何值。**
+
 ```go
+// 省略插件定义，具体见上节的例子
+
 // 配置
 type HelloWorldConfig struct {
     Hello     int
@@ -30,23 +35,34 @@ type HelloWorldConfig struct {
 }
 
 func init() {
-    // 初始化默认配置
+    // 初始化默认值（可选）
     cfg := HelloWorldConfig {
-        "Hello": 12345,
-        "World": "helloworld",
+        Hello: 12345,
+        World: "helloworld",
     }
-    
-    // ...略去info的定义
 
+    pPlugin = &TestPlugin{}
     // 传入指针
-    gonebot.NewPlugin(info, &cfg, onInit)
+    gonebot.RegisterPlugin(pPlugin, &cfg)
+
+    // 这样不好！这个时候结构体中的值跟上面一样
+    // cfg == *(gonebot.GetPluginConfig(p).(*HelloWorldConfig))
 }
 
 // 初始化插件
-func onInit(p *gonebot.Plugin) {
-    // 在这里，Config已经加载好了，可以使用了。
-    cfg := p.Config.(*HelloWorldConfig)
-    // fmt.Println(cfg)
+func (p *TestPlugin) Init(proxy *EngineProxy) {
+    // 在Init这里，Config已经加载好了，可以使用了。
+
+    cfg := gonebot.GetPluginConfig(p).(*HelloWorldConfig)
+    fmt.Println(cfg)
+    /*  
+        Expected:
+        {
+            Hello:     999,           // 配置定义的值覆盖了默认值。
+            World:     "helloworld",  // 使用默认值，因为配置中未定义。
+            CamelCase: "asddsas",
+        }
+    */
 }
 ```
 
@@ -56,7 +72,6 @@ plugin:
   config:
     HelloWorld@liwh011:
       hello: 999
-      world: aaaaaaaabbbbb
       camelCase: asddsas      # ok
       # camel_case: asddsas   # ok
       # CamelCase: asddsas    # ok
