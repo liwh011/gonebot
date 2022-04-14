@@ -7,11 +7,35 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Action struct {
+	next                 func() // 继续后续中间件的执行
+	abortHandler         func() // 中止后续中间件执行
+	stopEventPropagation func() // 停止事件传播给后续Handler（当前Handler仍会继续执行完毕）
+}
+
+func (a *Action) Next() {
+	a.next()
+}
+
+func (a *Action) AbortHandler() {
+	a.abortHandler()
+}
+
+func (a *Action) StopEventPropagation() {
+	a.stopEventPropagation()
+}
+
+func (a *Action) AbortAndStop() {
+	a.AbortHandler()
+	a.StopEventPropagation()
+}
+
 type Context struct {
 	Event   I_Event                // 事件（实际上是个指针）
 	Keys    map[string]interface{} // 存放一些提取出来的数据
 	Bot     *Bot                   // Bot实例
 	Handler *Handler
+	Action
 }
 
 func newContext(event I_Event, bot *Bot) *Context {
@@ -19,6 +43,12 @@ func newContext(event I_Event, bot *Bot) *Context {
 		Event: event,
 		Keys:  make(map[string]interface{}),
 		Bot:   bot,
+
+		Action: Action{
+			next:                 func() {},
+			abortHandler:         func() {},
+			stopEventPropagation: func() {},
+		},
 	}
 }
 
@@ -275,7 +305,7 @@ func (ctx *Context) WaitForNextEvent(timeout int, middlewares ...HandlerFunc) I_
 	ch := make(chan I_Event, 1)
 
 	tempHandler, remove := ctx.Handler.parent.NewRemovableHandler()
-	tempHandler.Use(middlewares...).Handle(func(c *Context, a *Action) {
+	tempHandler.Use(middlewares...).Handle(func(c *Context) {
 		ch <- c.Event
 		close(ch)
 	})

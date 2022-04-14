@@ -58,7 +58,7 @@ func (engine *Engine) Run() {
 		}
 
 		ctx := newContext(ev, engine.bot)
-		engine.handleEvent(ctx, &Action{func() {}, func() {}, func() {}})
+		engine.handleEvent(ctx)
 	}
 
 }

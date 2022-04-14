@@ -50,7 +50,12 @@ type TestPlugin struct{}
 func (p *TestPlugin) Init(proxy *EngineProxy) {
 	fmt.Println("init")
 	proxy.NewHandler(EventNamePrivateMessage).
-		Handle(func(c *Context, a *Action) {
+		Handle(func(c *Context) {
+			c.Reply("好丑啊")
+			c.StopEventPropagation()
+		})
+	proxy.NewHandler(EventNamePrivateMessage).
+		Handle(func(c *Context) {
 			c.Reply("好丑啊")
 		})
 }
@@ -75,7 +80,7 @@ func Test_pluginInit(t *testing.T) {
 		},
 	}
 	cfg.Plugin.Enable = make(map[string]bool)
-	cfg.Plugin.Enable["test@test"] = false
+	// cfg.Plugin.Enable["test@test"] = false
 	engine := NewEngine(&cfg)
 	engine.Run()
 }
