@@ -1,5 +1,5 @@
 # 流程控制
-上一节我们把Context给玩明白了，这一节我们来认识与流程控制相关的Action。
+上一节我们把Context给玩明白了，这一节我们来认识与流程控制相关的操作。
 但在此之前，要先介绍一下Handler的结构、以及事件处理流程，它是本节的基础。
 
 ## Handler的结构
@@ -19,7 +19,7 @@ sub := engine.NewHandler(gonebot.EventNamePrivateMessage)
 
 
 ## 流程控制
-目前市面上有些Bot框架仅仅只是将事件派发给各个处理器，这会造成一个问题：可能有多个处理器响应这个事件，表现为Bot对一条消息响应了多次。虽然说无伤大雅，但实在影响Bot的形象，一点都不高性能！为了解决这个问题，我们引入了`Action`来控制事件的处理流程。Action是一个结构体，内部提供了一些相关函数。
+目前市面上有些Bot框架仅仅只是将事件派发给各个处理器，这会造成一个问题：可能有多个处理器响应这个事件，表现为Bot对一条消息响应了多次。虽然说无伤大雅，但实在影响Bot的形象，一点都不高性能！为了解决这个问题，我们引入了流程处理函数来控制事件的处理流程，这些函数由Context提供。
 
 ### 中止当前Handler
 `AbortHandler`可以中断当前Handler的执行。在中间件内部调用该函数，后面的所有中间件都不会被调用，子Handler也不会被调用。
@@ -47,8 +47,8 @@ s2 := h.NewHandler()  // h的儿子2
 */
 p1 := engine.NewHandler(gonebot.EventNameGroupMessage).
 p1.Use(gonebot.Command("打我"))).
-    Handle(func (ctx *gonebot.Context, act *gonebot.Action) {
-        act.StopEventPropagation()
+    Handle(func (ctx *gonebot.Context) {
+        ctx.StopEventPropagation()
         // do something
     })
 
@@ -75,8 +75,8 @@ p2 := engine.NewHandler(gonebot.EventNameGroupMessage) // 略
 
 s1 := p1.NewHandler()  // p1的儿子
 s1.Use(gonebot.Command("打我"))).
-    Handle(func (ctx *gonebot.Context, act *gonebot.Action) {
-        act.StopEventPropagation()
+    Handle(func (ctx *gonebot.Context) {
+        ctx.StopEventPropagation()
         // do something
     })
 ss1 := s1.NewHandler() // s1的儿子1
@@ -96,9 +96,9 @@ func KouPi(ctx *gonebot.Context, act *gonebot.Action) {
 
 engine.NewHandler(gonebot.EventNamePrivateMessage).
     Use(KouPi, gonebot.FullMatch("你几岁")).
-    Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+    Handle(func(ctx *gonebot.Context) {
         ctx.Reply("24岁，是学生")
-        act.StopEventPropagation()
+        ctx.StopEventPropagation()
     })
 
 // 预期：

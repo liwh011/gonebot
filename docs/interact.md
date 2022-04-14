@@ -7,9 +7,9 @@
 ```go
 engine.NewHandler(gonebot.EventNamePrivateMessage).
     Use(gonebot.FullMatch("你几岁")).
-    Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+    Handle(func(ctx *gonebot.Context) {
         ctx.Reply("24岁，是学生")
-        act.StopEventPropagation()
+        ctx.StopEventPropagation()
     })
 ```
 `NewHandler(...EventName)`可以创建一个处理指定类型事件的Handler。
@@ -32,7 +32,7 @@ Event Name的所有枚举均已定义在`EventName`开头的常量中了。
 合理使用该函数，可以动态地增删Handler。下面给出了一个实现一次性Handler的例子：
 ```go
 h, remove := engine.NewRemovableHandler(gonebot.EventNamePrivateMessage)
-h.Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+h.Handle(func(ctx *gonebot.Context) {
     defer remove() // 干完活就删掉
     // do something
 })
@@ -61,28 +61,27 @@ h.Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
 - `Regex` : 事件为消息事件，且消息存在子串符合该正则表达式
 
 ### 编写中间件
-中间件本质上是`func(*gonebot.Context, *gonebot.Action)`类型的函数，因此你只用编写这么个函数就行了。
+中间件本质上是`func(*gonebot.Context)`类型的函数，因此你只用编写这么个函数就行了。
 
-这里简单介绍一下两个参数，因为这里是起步部分，所以不深入展开。
-- Context中含有当前Event、Bot实例、当前Handler以及存放自由数据的Map。Context提供了一些快速操作（如回复），也提供了一些向其中写入数据的函数，你的中间件可以写入数据以供处理函数使用。
-- Action中含有几个函数，它们与流程控制相关。例如：`AbortHandler`是中止当前Handler的执行，在编写先决条件时经常用到这个函数。`Next`是继续后续执行，执行完毕后从调用点后面继续运行，在用作后处理时常用。
+这里简单介绍一下参数，因为这里是起步部分，所以不深入展开。Context中含有当前Event、Bot实例、当前Handler以及存放自由数据的Map。Context提供了一些快速操作（如回复），也提供了一些向其中写入数据的函数，你的中间件可以写入数据以供处理函数使用。
+
 
 让我们一起来实操一下，开始写个卖瓜功能：
 ```go
 // 为卖瓜编写一个中间件，看看顾客是否在找茬
-func CheckZhaoCha(ctx *gonebot.Context, act *gonebot.Action) {
+func CheckZhaoCha(ctx *gonebot.Context) {
     text := ctx.Event.ExtractPlainText()  // 访问Event，获取消息中的纯文字
     if text == "我问你这瓜保熟吗？" {
         ctx.Set("找茬", true)  // 向CTX写入数据
         if ctx.Event.(*PrivateMessageEvent).Sender.Nickname == "刘华强" {
-            act.AbortHandler() // 中断Handler，这生意我不做了
+            ctx.AbortHandler() // 中断Handler，这生意我不做了
         }
     }
 }
 ```
 
 ### 指定处理函数
-处理函数是`func(*gonebot.Context, *gonebot.Action)`类型的函数，通过调用`Handler.Handle(func)`函数来指定。
+处理函数是`func(*gonebot.Context)`类型的函数，通过调用`Handler.Handle(func)`函数来指定。
 
 细心的你可能已经发现了，中间件跟处理函数不就是同一个东西吗？没错，它们就是同一个东西，不过我们还是选择将它们从语义上区分开来，并希望把处理函数当作EndPoint。也就是说，在调用`Handle`指定处理函数之后，这个Handler就定型了，就不应该调用`Use`继续添加中间件了。
 
@@ -90,7 +89,7 @@ func CheckZhaoCha(ctx *gonebot.Context, act *gonebot.Action) {
 ```go
 engine.NewHandler(gonebot.EventNamePrivateMessage).
     Use(CheckZhaoCha).  // 使用刚刚写的找茬中间件
-    Handle(func (ctx *gonebot.Context, act *gonebot.Action) {
+    Handle(func (ctx *gonebot.Context) {
         if ctx.GetBool("找茬") == true {  // 从CTX获取先前写入的数据
             ctx.Reply("你是故意找茬是不是？你要不要吧！")  // 调用CTX的快速操作
         } else {

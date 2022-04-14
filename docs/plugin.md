@@ -42,11 +42,11 @@ func (p *TestPlugin) Init(proxy *EngineProxy) {
 }
 
 
-func onPrivateHello(ctx *gonebot.Context, act *gonebot.Action) {
+func onPrivateHello(ctx *gonebot.Context) {
     ctx.Reply("你好！")
 }
 
-func onLaopo(ctx *gonebot.Context, act *gonebot.Action) {
+func onLaopo(ctx *gonebot.Context) {
     ctx.Reply("爬")
 }
 ```

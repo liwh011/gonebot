@@ -33,13 +33,13 @@ func main() {
 	// 创建一个Handler，用来处理私聊消息事件。
 	engine.NewHandler(gonebot.EventNamePrivateMessage).
 		Use(gonebot.FullMatch("你几岁")).
-		Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+		Handle(func(ctx *gonebot.Context) {
 			ctx.Reply("24岁，是学生")
-			act.StopEventPropagation()
+			ctx.StopEventPropagation()
 		})
 
 	engine.NewHandler(gonebot.EventNamePrivateMessage).
-		Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+		Handle(func(ctx *gonebot.Context) {
 			ctx.Reply("哼哼啊啊啊啊啊啊啊啊啊啊啊啊")
 		})
 
