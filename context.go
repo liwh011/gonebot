@@ -43,8 +43,9 @@ func newContext(event I_Event, bot *Bot) *Context {
 		Bot:   bot,
 
 		Action: Action{
-			next:   func() {},
-			break_: func() {},
+			next:     func() {},
+			break_:   func() {},
+			callNext: func() {},
 		},
 	}
 }

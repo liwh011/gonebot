@@ -190,3 +190,85 @@ func Test_handleEvent_break2(t *testing.T) {
 		t.Error("handleEvent error")
 	}
 }
+
+func Test_handleEvent_callnext(t *testing.T) {
+	handler := &Handler{
+		parent:      nil,
+		subHandlers: make(map[EventName][]*Handler),
+	}
+
+	ret := ""
+
+	handler.NewHandler().Handle(func(c *Context) {
+		ret += "A"
+		c.callNext()
+	})
+	handler.NewHandler().Handle(func(c *Context) {
+		ret += "B"
+		c.callNext()
+	})
+
+	h2 := handler.NewHandler()
+	h2.NewHandler().Handle(func(ctx *Context) {
+		ret += "C"
+	})
+	h2.NewHandler().Handle(func(ctx *Context) {
+		ret += "D"
+	})
+
+	msgEvent := &GroupMessageEvent{}
+	msgEvent.EventName = EventNameGroupMessage
+	msgEvent.PostType = PostTypeMessageEvent
+	msgEvent.Message = MsgPrint("哈哈哈")
+
+	ctx := newContext(msgEvent, nil)
+	handler.handleEvent(ctx)
+
+	if ret != "ABC" {
+		t.Error("handleEvent error")
+	}
+}
+
+func Test_handleEvent_callnext2(t *testing.T) {
+	handler := &Handler{
+		parent:      nil,
+		subHandlers: make(map[EventName][]*Handler),
+	}
+
+	ret := ""
+
+	handler.NewHandler().Handle(func(c *Context) {
+		c.callNext()
+		ret += "A"
+		c.callNext()
+		c.callNext()
+		c.callNext()
+	})
+	handler.NewHandler().Handle(func(c *Context) {
+		ret += "B"
+		c.callNext()
+		c.callNext()
+		c.callNext()
+		c.callNext()
+	})
+
+	h2 := handler.NewHandler()
+	h2.NewHandler().Handle(func(ctx *Context) {
+		ret += "C"
+	})
+	h2.NewHandler().Handle(func(ctx *Context) {
+		ret += "D"
+	})
+
+	msgEvent := &GroupMessageEvent{}
+	msgEvent.EventName = EventNameGroupMessage
+	msgEvent.PostType = PostTypeMessageEvent
+	msgEvent.Message = MsgPrint("哈哈哈")
+
+	ctx := newContext(msgEvent, nil)
+	handler.handleEvent(ctx)
+
+	if ret != "BCA" {
+		t.Error("handleEvent error")
+	}
+}

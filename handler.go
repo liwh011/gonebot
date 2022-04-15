@@ -120,10 +120,11 @@ func (h *Handler) handleEvent(ctx *Context) {
 	newAction.callNext = func() {
 		for !aborted && mwIdx < len(middlewares) {
 			mw := middlewares[mwIdx]
+			mwIdx++ // 放在这里是因为中间件调用callnext时，idx必须是当前的下一个，否则会造成无限递归
 			mw(ctx)
-			mwIdx++
 		}
-		if !aborted && h.handleFunc != nil {
+		if !aborted && h.handleFunc != nil && mwIdx == len(middlewares) {
+			mwIdx++ // 防止无限递归
 			h.handleFunc(ctx)
 		}
 		if aborted {
@@ -133,9 +134,14 @@ func (h *Handler) handleEvent(ctx *Context) {
 		for next && shIdx < len(subHandlers) {
 			next = false
 			sh := subHandlers[shIdx]
+			shIdx++ // 防止无限递归
 			sh.handleEvent(ctx)
-			shIdx++
 		}
+		if !next {
+			return
+		}
+		prevAction.next()
+		prevAction.callNext()
 	}
 	newAction.break_ = func() {
 		aborted = true
@@ -144,16 +150,19 @@ func (h *Handler) handleEvent(ctx *Context) {
 
 	ctx.Action = newAction
 
+	// 顺序执行中间件
 	for !aborted && mwIdx < len(middlewares) {
 		mw := middlewares[mwIdx]
+		mwIdx++ // 放在这里是因为中间件调用callnext时，idx必须是当前的下一个，否则会造成无限递归
 		mw(ctx)
-		mwIdx++
 	}
-	if !aborted && h.handleFunc != nil {
+	// 执行处理函数
+	if !aborted && h.handleFunc != nil && mwIdx == len(middlewares) {
+		mwIdx++ // 防止无限递归
 		h.handleFunc(ctx)
 	}
 	if aborted {
-		// 中断本handler，意味着本handler没有处理事件，则继续把事件交由下一个handler
+		// 如果中断本handler，意味着本handler没有处理事件，则继续把事件交由下一个handler
 		prevAction.next()
 		return
 	}
@@ -168,11 +177,12 @@ func (h *Handler) handleEvent(ctx *Context) {
 	}
 	ctx.Action = newAction
 
+	// 顺序执行subhandler
 	for next && shIdx < len(subHandlers) {
 		next = false
 		sh := subHandlers[shIdx]
+		shIdx++ // 防止无限递归
 		sh.handleEvent(ctx)
-		shIdx++
 	}
 }
 
