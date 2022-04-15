@@ -8,26 +8,24 @@ import (
 )
 
 type Action struct {
-	next                 func() // 继续后续中间件的执行
-	abortHandler         func() // 中止后续中间件执行
-	stopEventPropagation func() // 停止事件传播给后续Handler（当前Handler仍会继续执行完毕）
+	next     func() // 继续本handler的后续执行
+	break_   func() // 中断本handler的执行，转到下一个handler执行
+	callNext func()
 }
 
+// 继续调用下一个handler（立即返回，不包含栈信息）
 func (a *Action) Next() {
 	a.next()
 }
 
-func (a *Action) AbortHandler() {
-	a.abortHandler()
+// 中断本handler的执行，转到下一个handler执行
+func (a *Action) Break() {
+	a.break_()
 }
 
-func (a *Action) StopEventPropagation() {
-	a.stopEventPropagation()
-}
-
-func (a *Action) AbortAndStop() {
-	a.AbortHandler()
-	a.StopEventPropagation()
+// 调用本Handler的后续执行（后续执行完毕后才返回）
+func (a *Action) CallNext() {
+	a.callNext()
 }
 
 type Context struct {
@@ -45,9 +43,8 @@ func newContext(event I_Event, bot *Bot) *Context {
 		Bot:   bot,
 
 		Action: Action{
-			next:                 func() {},
-			abortHandler:         func() {},
-			stopEventPropagation: func() {},
+			next:   func() {},
+			break_: func() {},
 		},
 	}
 }

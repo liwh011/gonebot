@@ -23,7 +23,7 @@ func newService(name string) *Service {
 		gid, exist := getEventField(c.Event, "GroupId")
 		if exist {
 			if !sv.IsEnabled(gid.(int64)) {
-				c.AbortHandler()
+				c.Break()
 			}
 		}
 	})

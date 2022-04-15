@@ -52,7 +52,7 @@ func (p *TestPlugin) Init(proxy *EngineProxy) {
 	proxy.NewHandler(EventNamePrivateMessage).
 		Handle(func(c *Context) {
 			c.Reply("好丑啊")
-			c.StopEventPropagation()
+			// c.StopEventPropagation()
 		})
 	proxy.NewHandler(EventNamePrivateMessage).
 		Handle(func(c *Context) {
