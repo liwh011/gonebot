@@ -10,18 +10,18 @@ func Test_handleEvent_default(t *testing.T) {
 		parent:      nil,
 		subHandlers: make(map[EventName][]*Handler),
 	}
-	ch := make(chan string, 2)
+	ret := ""
 	handler.
 		NewHandler().
 		// Use(Command("哈哈哈")).
 		Handle(func(c *Context) {
-			ch <- "A"
+			ret += "A"
 		})
 	handler.
 		NewHandler().
 		Use(Command("哈哈哈")).
 		Handle(func(c *Context) {
-			ch <- "B"
+			ret += "B"
 		})
 
 	msgEvent := &GroupMessageEvent{}
@@ -34,8 +34,8 @@ func Test_handleEvent_default(t *testing.T) {
 	ctx := newContext(msgEvent, nil)
 	handler.handleEvent(ctx)
 
-	if len(ch) != 1 || <-ch != "A" {
-		t.Error("handleEvent error")
+	if ret != "A" {
+		t.Error("handleEvent error ", ret)
 	}
 }
 
@@ -127,7 +127,7 @@ func Test_handleEvent_break(t *testing.T) {
 
 	handler.
 		NewHandler().
-		Use(func(ctx *Context) { ctx.Break() }).
+		Use(func(ctx *Context) bool { return false }).
 		// Use(Command("哈哈哈")).
 		Handle(func(c *Context) {
 			ch <- "A"
@@ -165,7 +165,7 @@ func Test_handleEvent_break2(t *testing.T) {
 
 	h2 := handler.NewHandler()
 	h2.NewHandler().
-		Use(func(ctx *Context) { ctx.Break() }).
+		Use(func(ctx *Context) bool { return false }).
 		Handle(func(c *Context) {
 			ch <- "A"
 		})

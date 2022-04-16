@@ -9,8 +9,8 @@ import (
 
 type Action struct {
 	next     func() // 继续本handler的后续执行
-	break_   func() // 中断本handler的执行，转到下一个handler执行
 	callNext func()
+	abort    func()
 }
 
 // 继续调用下一个handler（立即返回，不包含栈信息）
@@ -18,14 +18,13 @@ func (a *Action) Next() {
 	a.next()
 }
 
-// 中断本handler的执行，转到下一个handler执行
-func (a *Action) Break() {
-	a.break_()
-}
-
 // 调用本Handler的后续执行（后续执行完毕后才返回）
 func (a *Action) CallNext() {
 	a.callNext()
+}
+
+func (a *Action) Abort() {
+	a.abort()
 }
 
 type Context struct {
@@ -44,7 +43,6 @@ func newContext(event I_Event, bot *Bot) *Context {
 
 		Action: Action{
 			next:     func() {},
-			break_:   func() {},
 			callNext: func() {},
 		},
 	}
@@ -299,7 +297,7 @@ func (ctx *Context) GetSlice(key string) (s []interface{}) {
 //
 // timeout为超时时间（单位为秒），超时返回nil。
 // middlewares为事件处理中间件，可以添加筛选条件。
-func (ctx *Context) WaitForNextEvent(timeout int, middlewares ...HandlerFunc) I_Event {
+func (ctx *Context) WaitForNextEvent(timeout int, middlewares ...Middleware) I_Event {
 	ch := make(chan I_Event, 1)
 
 	tempHandler, remove := ctx.Handler.parent.NewRemovableHandler()
@@ -318,7 +316,7 @@ func (ctx *Context) WaitForNextEvent(timeout int, middlewares ...HandlerFunc) I_
 }
 
 // 获取同一个Session的下一个符合条件的事件。
-func (ctx *Context) WaitForNextEventInSameSession(timeout int, middlewares ...HandlerFunc) I_Event {
+func (ctx *Context) WaitForNextEventInSameSession(timeout int, middlewares ...Middleware) I_Event {
 	middlewares = append(middlewares, FromSession(ctx.Event.GetSessionId()))
 	return ctx.WaitForNextEvent(timeout, middlewares...)
 }
