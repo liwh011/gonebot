@@ -272,3 +272,33 @@ func Test_handleEvent_callnext2(t *testing.T) {
 		t.Error("handleEvent error")
 	}
 }
+
+func Test_handleEvent_callnext3(t *testing.T) {
+	handler := &Handler{
+		parent:      nil,
+		subHandlers: make(map[EventName][]*Handler),
+	}
+
+	ret := ""
+
+	handler.NewHandler().
+		Use(func(ctx *Context) bool { ctx.callNext(); return true }).
+		Handle(func(c *Context) {
+			ret += "A"
+		})
+	handler.NewHandler().Handle(func(c *Context) {
+		ret += "B"
+	})
+
+	msgEvent := &GroupMessageEvent{}
+	msgEvent.EventName = EventNameGroupMessage
+	msgEvent.PostType = PostTypeMessageEvent
+	msgEvent.Message = MsgPrint("哈哈哈")
+
+	ctx := newContext(msgEvent, nil)
+	handler.handleEvent(ctx)
+
+	if ret != "A" {
+		t.Error("handleEvent error")
+	}
+}

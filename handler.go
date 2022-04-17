@@ -91,23 +91,35 @@ func (h *Handler) getMatchedHandler(eventName EventName) (handlers []*Handler) {
 func (h *Handler) handleEvent(ctx *Context) {
 	eventName := ctx.Event.GetEventName()
 	handlerQueue := []*Handler{h}
+	handler := handlerQueue[0]
 
-	mwIdx := 0
-	nextHandler := true
-	aborted := false
+	mwIdx := 0                 // 中间件索引
+	nextHandler := true        // 是否继续执行下一个Handler
+	aborted := false           // 是否中断事件处理
+	runningMiddleware := false // 是否正在执行中间件，用于在next中判断
 
 	run := func() {
+	handlerLoop:
 		for !aborted && nextHandler && len(handlerQueue) > 0 {
-			handler := handlerQueue[0]
-			handlerQueue = handlerQueue[1:]
+			// 当在middleware中调用next时,应：
+			//     继续执行后续的middleware，而不要重置mwidx；
+			//     继续这个Handler，而不是取队头的下一个Handler执行；
+			if !runningMiddleware {
+				mwIdx = 0
+				handler = handlerQueue[0]
+				handlerQueue = handlerQueue[1:]
+			}
 
 			for mwIdx < len(handler.middlewares) {
+				runningMiddleware = true
+
 				mw := handler.middlewares[mwIdx]
 				mwIdx++
 
 				// 当前Handler放弃处理
 				if !mw(ctx) {
-					goto end
+					runningMiddleware = false
+					continue handlerLoop
 				}
 
 				// 中断所有处理
@@ -115,24 +127,22 @@ func (h *Handler) handleEvent(ctx *Context) {
 					return
 				}
 			}
+			runningMiddleware = false
 
 			// leaf
-			// 只有叶子结点才会调用handleFunc
+			// 只有叶子结点才调用handleFunc
 			// handlerFunc中可能会改变nextHandler的值
 			if len(handler.subHandlers) == 0 {
+				// 默认不向下执行
 				nextHandler = false
 				if handler.handleFunc != nil {
 					handler.handleFunc(ctx)
 				}
-				goto end
+			} else {
+				// nonleaf
+				// 按照先序的顺序，子Handler应塞在队头
+				handlerQueue = append(handler.getMatchedHandler(eventName), handlerQueue...)
 			}
-
-			// nonleaf
-			// 按照先序的顺序，子Handler应塞在队头
-			handlerQueue = append(handler.getMatchedHandler(eventName), handlerQueue...)
-
-		end:
-			mwIdx = 0
 		}
 	}
 
@@ -140,9 +150,12 @@ func (h *Handler) handleEvent(ctx *Context) {
 		nextHandler = true
 	}
 	ctx.Action.callNext = func() {
-		nextHandler = true
+		// 在中间件中调用next，不会执行下一个Handler
+		if !runningMiddleware {
+			nextHandler = true
+		}
 		run()
-		handlerQueue = nil
+		aborted = true
 	}
 	ctx.Action.abort = func() {
 		aborted = true
