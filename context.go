@@ -7,23 +7,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Action struct {
-	next     func() // 继续本handler的后续执行
-	callNext func()
-	abort    func()
+type action struct {
+	next  func()
+	abort func()
 }
 
-// 继续调用下一个handler（立即返回，不包含栈信息）
-func (a *Action) Next() {
+// 继续后续执行（后续执行完毕后才返回）
+func (a *action) Next() {
 	a.next()
 }
 
-// 调用本Handler的后续执行（后续执行完毕后才返回）
-func (a *Action) CallNext() {
-	a.callNext()
-}
-
-func (a *Action) Abort() {
+func (a *action) Abort() {
 	a.abort()
 }
 
@@ -32,7 +26,7 @@ type Context struct {
 	Keys    map[string]interface{} // 存放一些提取出来的数据
 	Bot     *Bot                   // Bot实例
 	Handler *Handler
-	Action
+	action
 }
 
 func newContext(event I_Event, bot *Bot) *Context {
@@ -41,9 +35,9 @@ func newContext(event I_Event, bot *Bot) *Context {
 		Keys:  make(map[string]interface{}),
 		Bot:   bot,
 
-		Action: Action{
-			next:     func() {},
-			callNext: func() {},
+		action: action{
+			next:  func() {},
+			abort: func() {},
 		},
 	}
 }

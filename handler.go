@@ -146,10 +146,7 @@ func (h *Handler) handleEvent(ctx *Context) {
 		}
 	}
 
-	ctx.Action.next = func() {
-		nextHandler = true
-	}
-	ctx.Action.callNext = func() {
+	ctx.action.next = func() {
 		// 在中间件中调用next，不会执行下一个Handler
 		if !runningMiddleware {
 			nextHandler = true
@@ -157,7 +154,7 @@ func (h *Handler) handleEvent(ctx *Context) {
 		run()
 		aborted = true
 	}
-	ctx.Action.abort = func() {
+	ctx.action.abort = func() {
 		aborted = true
 	}
 

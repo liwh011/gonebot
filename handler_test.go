@@ -45,19 +45,19 @@ func Test_handleEvent_next(t *testing.T) {
 		parent:      nil,
 		subHandlers: make(map[EventName][]*Handler),
 	}
-	ch := make(chan string, 2)
+	ret := ""
 	handler.
 		NewHandler().
 		// Use(Command("哈哈哈")).
 		Handle(func(c *Context) {
-			ch <- "A"
-			c.next()
+			ret += "A"
+			c.Next()
 		})
 	handler.
 		NewHandler().
 		Use(Command("哈哈哈")).
 		Handle(func(c *Context) {
-			ch <- "B"
+			ret += "B"
 		})
 
 	msgEvent := &GroupMessageEvent{}
@@ -70,7 +70,7 @@ func Test_handleEvent_next(t *testing.T) {
 	ctx := newContext(msgEvent, nil)
 	handler.handleEvent(ctx)
 
-	if len(ch) != 2 || <-ch != "A" || <-ch != "B" {
+	if ret != "AB" {
 		t.Error("handleEvent error")
 	}
 }
@@ -81,17 +81,17 @@ func Test_handleEvent_next2(t *testing.T) {
 		parent:      nil,
 		subHandlers: make(map[EventName][]*Handler),
 	}
-	ch := make(chan string, 5)
+	ret := ""
 
 	h2 := handler.NewHandler()
 	h2.NewHandler().
 		Handle(func(c *Context) {
-			ch <- "A"
+			ret += "A"
 			c.Next()
 		})
 	h2.NewHandler().
 		Handle(func(c *Context) {
-			ch <- "B"
+			ret += "B"
 			c.Next()
 		})
 
@@ -99,7 +99,7 @@ func Test_handleEvent_next2(t *testing.T) {
 		NewHandler().
 		// Use(Command("哈哈哈")).
 		Handle(func(c *Context) {
-			ch <- "C"
+			ret += "C"
 		})
 	msgEvent := &GroupMessageEvent{}
 	msgEvent.EventName = EventNameGroupMessage
@@ -111,32 +111,32 @@ func Test_handleEvent_next2(t *testing.T) {
 	ctx := newContext(msgEvent, nil)
 	handler.handleEvent(ctx)
 
-	if len(ch) != 3 || <-ch != "A" || <-ch != "B" || <-ch != "C" {
+	if ret != "ABC" {
 		t.Error("handleEvent error")
 	}
 }
 
-// 中间件中调用了break，同时两个handler为兄弟关系
+// 中间件返回false，同时两个handler为兄弟关系
 func Test_handleEvent_break(t *testing.T) {
 	handler := &Handler{
 		parent:      nil,
 		subHandlers: make(map[EventName][]*Handler),
 	}
 
-	ch := make(chan string, 5)
+	ret := ""
 
 	handler.
 		NewHandler().
 		Use(func(ctx *Context) bool { return false }).
 		// Use(Command("哈哈哈")).
 		Handle(func(c *Context) {
-			ch <- "A"
+			ret += "A"
 		})
 
 	handler.
 		NewHandler().
 		Handle(func(c *Context) {
-			ch <- "B"
+			ret += "B"
 		})
 
 	msgEvent := &GroupMessageEvent{}
@@ -149,31 +149,30 @@ func Test_handleEvent_break(t *testing.T) {
 	ctx := newContext(msgEvent, nil)
 	handler.handleEvent(ctx)
 
-	if len(ch) != 1 || <-ch != "B" {
+	if ret != "B" {
 		t.Error("handleEvent error")
 	}
 }
 
-// 左子树的handler中调用了break
 func Test_handleEvent_break2(t *testing.T) {
 	handler := &Handler{
 		parent:      nil,
 		subHandlers: make(map[EventName][]*Handler),
 	}
 
-	ch := make(chan string, 5)
+	ret := ""
 
 	h2 := handler.NewHandler()
 	h2.NewHandler().
 		Use(func(ctx *Context) bool { return false }).
 		Handle(func(c *Context) {
-			ch <- "A"
+			ret += "A"
 		})
 
 	handler.
 		NewHandler().
 		Handle(func(c *Context) {
-			ch <- "B"
+			ret += "B"
 		})
 
 	msgEvent := &GroupMessageEvent{}
@@ -186,7 +185,7 @@ func Test_handleEvent_break2(t *testing.T) {
 	ctx := newContext(msgEvent, nil)
 	handler.handleEvent(ctx)
 
-	if len(ch) != 1 || <-ch != "B" {
+	if ret != "B" {
 		t.Error("handleEvent error")
 	}
 }
@@ -201,11 +200,11 @@ func Test_handleEvent_callnext(t *testing.T) {
 
 	handler.NewHandler().Handle(func(c *Context) {
 		ret += "A"
-		c.callNext()
+		c.Next()
 	})
 	handler.NewHandler().Handle(func(c *Context) {
 		ret += "B"
-		c.callNext()
+		c.Next()
 	})
 
 	h2 := handler.NewHandler()
@@ -238,18 +237,18 @@ func Test_handleEvent_callnext2(t *testing.T) {
 	ret := ""
 
 	handler.NewHandler().Handle(func(c *Context) {
-		c.callNext()
+		c.Next()
 		ret += "A"
-		c.callNext()
-		c.callNext()
-		c.callNext()
+		c.Next()
+		c.Next()
+		c.Next()
 	})
 	handler.NewHandler().Handle(func(c *Context) {
 		ret += "B"
-		c.callNext()
-		c.callNext()
-		c.callNext()
-		c.callNext()
+		c.Next()
+		c.Next()
+		c.Next()
+		c.Next()
 	})
 
 	h2 := handler.NewHandler()
@@ -282,7 +281,7 @@ func Test_handleEvent_callnext3(t *testing.T) {
 	ret := ""
 
 	handler.NewHandler().
-		Use(func(ctx *Context) bool { ctx.callNext(); return true }).
+		Use(func(ctx *Context) bool { ctx.Next(); return true }).
 		Handle(func(c *Context) {
 			ret += "A"
 		})
