@@ -55,14 +55,15 @@ Context中存在`Keys`字段，可以供你存取你自己的数据（一般是�
 ### 写入
 回顾上一节中的卖瓜例子：
 ```go
-func CheckZhaoCha(ctx *gonebot.Context) {
+func CheckZhaoCha(ctx *gonebot.Context) bool {
     text := ctx.Event.ExtractPlainText() 
     if text == "我问你这瓜保熟吗？" {
         ctx.Set("找茬", true)  // 向CTX写入数据
         if ctx.Event.(*PrivateMessageEvent).Sender.Nickname == "刘华强" {
-            ctx.AbortHandler() 
+            return false
         }
     }
+    return true
 }
 ```
 该例子通过使用Context的`Set`函数，向Keys写入数据，以供后续使用。

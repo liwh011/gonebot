@@ -301,3 +301,38 @@ func Test_handleEvent_callnext3(t *testing.T) {
 		t.Error("handleEvent error")
 	}
 }
+
+func Test_handleEvent_callnext4(t *testing.T) {
+	handler := &Handler{
+		parent:      nil,
+		subHandlers: make(map[EventName][]*Handler),
+	}
+
+	ret := ""
+
+	handler.NewHandler().
+		Use(func(ctx *Context) bool {
+			ctx.Next()
+			ret += "A"
+			return true
+		}).
+		Handle(func(ctx *Context) {
+			ret += "B"
+			ctx.Next()
+		})
+	handler.NewHandler().Handle(func(c *Context) {
+		ret += "C"
+	})
+
+	msgEvent := &GroupMessageEvent{}
+	msgEvent.EventName = EventNameGroupMessage
+	msgEvent.PostType = PostTypeMessageEvent
+	msgEvent.Message = MsgPrint("哈哈哈")
+
+	ctx := newContext(msgEvent, nil)
+	handler.handleEvent(ctx)
+
+	if ret != "BCA" {
+		t.Error("handleEvent error", ret)
+	}
+}

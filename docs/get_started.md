@@ -35,7 +35,6 @@ func main() {
 		Use(gonebot.FullMatch("你几岁")).
 		Handle(func(ctx *gonebot.Context) {
 			ctx.Reply("24岁，是学生")
-			ctx.StopEventPropagation()
 		})
 
 	engine.NewHandler(gonebot.EventNamePrivateMessage).

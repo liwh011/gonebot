@@ -9,7 +9,6 @@ engine.NewHandler(gonebot.EventNamePrivateMessage).
     Use(gonebot.FullMatch("你几岁")).
     Handle(func(ctx *gonebot.Context) {
         ctx.Reply("24岁，是学生")
-        ctx.StopEventPropagation()
     })
 ```
 `NewHandler(...EventName)`可以创建一个处理指定类型事件的Handler。
@@ -61,7 +60,7 @@ h.Handle(func(ctx *gonebot.Context) {
 - `Regex` : 事件为消息事件，且消息存在子串符合该正则表达式
 
 ### 编写中间件
-中间件本质上是`func(*gonebot.Context)`类型的函数，因此你只用编写这么个函数就行了。
+中间件本质上是`func(*gonebot.Context) bool`类型的函数，返回true代表继续下一个中间件，返回false表示令当前Handler停止处理。
 
 这里简单介绍一下参数，因为这里是起步部分，所以不深入展开。Context中含有当前Event、Bot实例、当前Handler以及存放自由数据的Map。Context提供了一些快速操作（如回复），也提供了一些向其中写入数据的函数，你的中间件可以写入数据以供处理函数使用。
 
@@ -69,23 +68,22 @@ h.Handle(func(ctx *gonebot.Context) {
 让我们一起来实操一下，开始写个卖瓜功能：
 ```go
 // 为卖瓜编写一个中间件，看看顾客是否在找茬
-func CheckZhaoCha(ctx *gonebot.Context) {
+func CheckZhaoCha(ctx *gonebot.Context) bool {
     text := ctx.Event.ExtractPlainText()  // 访问Event，获取消息中的纯文字
     if text == "我问你这瓜保熟吗？" {
         ctx.Set("找茬", true)  // 向CTX写入数据
         if ctx.Event.(*PrivateMessageEvent).Sender.Nickname == "刘华强" {
-            ctx.AbortHandler() // 中断Handler，这生意我不做了
+            return false // 中断Handler，这生意我不做了
         }
     }
+    return true // 继续
 }
 ```
 
 ### 指定处理函数
 处理函数是`func(*gonebot.Context)`类型的函数，通过调用`Handler.Handle(func)`函数来指定。
 
-细心的你可能已经发现了，中间件跟处理函数不就是同一个东西吗？没错，它们就是同一个东西，不过我们还是选择将它们从语义上区分开来，并希望把处理函数当作EndPoint。也就是说，在调用`Handle`指定处理函数之后，这个Handler就定型了，就不应该调用`Use`继续添加中间件了。
-
-在处理函数中，你可以根据你的需要来调用Context提供的快速操作，或者通过Context中的Bot实例来调用其他的API，以实现机器人对事件的反应。你也可以调用Action中的函数来中断事件的传播。下面，我们继续完成卖瓜：
+在处理函数中，你可以根据你的需要来调用Context提供的快速操作，或者通过Context中的Bot实例来调用其他的API，以实现机器人对事件的反应。你也可以调用Context中的函数来控制事件处理流程。下面，我们继续完成卖瓜：
 ```go
 engine.NewHandler(gonebot.EventNamePrivateMessage).
     Use(CheckZhaoCha).  // 使用刚刚写的找茬中间件
