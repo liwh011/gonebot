@@ -6,13 +6,6 @@ import (
 )
 
 func Test_convertMapToConfig(t *testing.T) {
-	info := PluginInfo{
-		Name:        "test",
-		Description: "test",
-		Version:     "test",
-		Author:      "test",
-	}
-
 	type Config struct {
 		Id     int64
 		Name   string
@@ -30,8 +23,9 @@ func Test_convertMapToConfig(t *testing.T) {
 		}
 	}
 	cfg := Config{}
-	p := NewPlugin(info, &cfg, nil)
-	p.convertMapToConfig(PluginConfig{
+
+	// p := TestPlugin{}
+	convertConfigMapToStruct(&cfg, PluginConfigMap{
 		"id":     1,
 		"name":   "test",
 		"enable": true,
@@ -49,5 +43,44 @@ func Test_convertMapToConfig(t *testing.T) {
 		},
 	})
 	fmt.Println(cfg)
-	fmt.Println(p.Config)
+}
+
+type TestPlugin struct{}
+
+func (p *TestPlugin) Init(proxy *EngineProxy) {
+	fmt.Println("init")
+	proxy.NewHandler(EventNamePrivateMessage).
+		Handle(func(c *Context) {
+			c.Reply("好丑啊")
+			// c.StopEventPropagation()
+		})
+	proxy.NewHandler(EventNamePrivateMessage).
+		Handle(func(c *Context) {
+			c.Reply("好丑啊")
+		})
+}
+
+func (p *TestPlugin) GetPluginInfo() PluginInfo {
+	return PluginInfo{
+		Name:        "test",
+		Author:      "test",
+		Description: "test",
+		Version:     "test",
+	}
+}
+
+func Test_pluginInit(t *testing.T) {
+	RegisterPlugin(&TestPlugin{}, nil)
+	cfg := BaseConfig{
+		Websocket: WebsocketConfig{
+			Host:           "127.0.0.1",
+			Port:           6700,
+			AccessToken:    "asdsss",
+			ApiCallTimeout: 10,
+		},
+	}
+	cfg.Plugin.Enable = make(map[string]bool)
+	// cfg.Plugin.Enable["test@test"] = false
+	engine := NewEngine(&cfg)
+	engine.Run()
 }

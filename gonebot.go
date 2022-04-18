@@ -5,6 +5,12 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func init() {
+	EngineHookManager = &engineHookManager{
+		hooks: make(map[lifecycleHookType][]*func(*Engine)),
+	}
+}
+
 type Engine struct {
 	Handler
 	Config *BaseConfig
@@ -19,10 +25,14 @@ func NewEngine(cfg Config) *Engine {
 	engine.ws = NewWebsocketClient(engine.Config)
 	engine.bot = NewBot(engine.ws, engine.Config)
 
+	// 初始化handler
 	engine.Handler = Handler{
 		subHandlers: make(map[EventName][]*Handler),
 		parent:      nil,
 	}
+
+	// 通知钩子
+	EngineHookManager.runHook(LifecycleHookTypeOnCreated, engine)
 
 	return engine
 }
@@ -48,7 +58,7 @@ func (engine *Engine) Run() {
 		}
 
 		ctx := newContext(ev, engine.bot)
-		engine.handleEvent(ctx, &Action{func() {}, func() {}, func() {}})
+		engine.handleEvent(ctx)
 	}
 
 }
@@ -58,4 +68,46 @@ func (engine *Engine) NewService(name string) *Service {
 	sv := newService(name)
 	sv.Handler = *h
 	return sv
+}
+
+// Engine的生命周期钩子
+type engineHookManager struct {
+	hooks map[lifecycleHookType][]*func(*Engine)
+}
+
+// Engine的生命周期钩子
+var EngineHookManager *engineHookManager
+
+type lifecycleHookType int
+
+const (
+	// Engine创建后触发
+	LifecycleHookTypeOnCreated lifecycleHookType = iota
+)
+
+func (eh *engineHookManager) runHook(hookType lifecycleHookType, engine *Engine) {
+	for _, hook := range eh.hooks[hookType] {
+		(*hook)(engine)
+	}
+}
+
+func (eh *engineHookManager) removeHook(hookType lifecycleHookType, hook *func(*Engine)) {
+	for i, f := range eh.hooks[hookType] {
+		if f == hook {
+			eh.hooks[hookType] = append(eh.hooks[hookType][:i], eh.hooks[hookType][i+1:]...)
+			break
+		}
+	}
+}
+
+func (eh *engineHookManager) addHook(hookType lifecycleHookType, hook *func(*Engine)) (cancel func()) {
+	eh.hooks[hookType] = append(eh.hooks[hookType], hook)
+	return func() {
+		eh.removeHook(hookType, hook)
+	}
+}
+
+// 注册OnCreated钩子
+func (eh *engineHookManager) OnCreated(f func(*Engine)) (cancel func()) {
+	return eh.addHook(LifecycleHookTypeOnCreated, &f)
 }

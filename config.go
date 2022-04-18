@@ -18,12 +18,12 @@ type WebsocketConfig struct {
 	ApiCallTimeout int    `yaml:"apicall_timeout"` // API调用超时时间，单位：秒
 }
 
-type PluginConfig map[string]interface{} // 插件配置
+type PluginConfigMap map[string]interface{} // 插件配置
 type BaseConfig struct {
 	Websocket WebsocketConfig `yaml:"websocket"`
 	Plugin    struct {
-		Enable map[string]bool         `yaml:"enable"`
-		Config map[string]PluginConfig `yaml:"config"`
+		Enable map[string]bool            `yaml:"enable"`
+		Config map[string]PluginConfigMap `yaml:"config"`
 	}
 }
 

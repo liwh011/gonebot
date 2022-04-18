@@ -7,7 +7,8 @@ import (
 
 func Test_Image(t *testing.T) {
 
-	a := Image("http://www.baidu.com/img/bd_logo1.png", ImageOptions().SetCache(false).SetProxy(true))
+	a := MessageSegmentFactory.Image("http://www.baidu.com/img/bd_logo1.png",
+		MessageSegmentFactory.ImageOptions().SetCache(false).SetProxy(true))
 	fmt.Printf("%v\n", a)
 }
 
@@ -33,7 +34,7 @@ func Test_Format(t *testing.T) {
 		},
 		{
 			"word:%s, atsb:{}, num:%d",
-			[]interface{}{"hello", AtSomeone(114514), 114},
+			[]interface{}{"hello", MessageSegmentFactory.AtSomeone(114514), 114},
 			func(msg Message) bool {
 				return (len(msg) == 3 && msg[0].IsText() && msg[0].Data["text"] == "word:hello, atsb:" &&
 					msg[1].Type == "at" && msg[2].IsText() && msg[2].Data["text"] == ", num:114")
@@ -41,7 +42,7 @@ func Test_Format(t *testing.T) {
 		},
 		{
 			"atsb:{}, num:%d, face:{}",
-			[]interface{}{AtSomeone(114514), 114, Face(1919)},
+			[]interface{}{MessageSegmentFactory.AtSomeone(114514), 114, MessageSegmentFactory.Face(1919)},
 			func(msg Message) bool {
 				return (len(msg) == 4 &&
 					msg[0].IsText() && msg[0].Data["text"] == "atsb:" &&
@@ -52,7 +53,7 @@ func Test_Format(t *testing.T) {
 		},
 		{
 			"{}, num:%d, face:{} asdsa",
-			[]interface{}{AtSomeone(114514), 114, Face(1919)},
+			[]interface{}{MessageSegmentFactory.AtSomeone(114514), 114, MessageSegmentFactory.Face(1919)},
 			func(msg Message) bool {
 				return (len(msg) == 4 &&
 					msg[0].Type == "at" &&
@@ -70,7 +71,7 @@ func Test_Format(t *testing.T) {
 		},
 		{
 			"aa{}",
-			[]interface{}{MsgPrint("114514", AtAll())},
+			[]interface{}{MsgPrint("114514", MessageSegmentFactory.AtAll())},
 			func(msg Message) bool {
 				t.Logf("%v", msg)
 				return true
@@ -95,15 +96,19 @@ func Test_String(t *testing.T) {
 		expect string
 	}{
 		{
-			Message{AtAll(), Text("hello")},
+			Message{MessageSegmentFactory.AtAll(), MessageSegmentFactory.Text("hello")},
 			"[CQ:at,qq=all]hello",
 		},
 		{
-			Message{Image("http://www.baidu.com/img/bd_logo1.png", ImageOptions().SetCache(false).SetProxy(true)), Text("hello")},
+			Message{
+				MessageSegmentFactory.Image("http://www.baidu.com/img/bd_logo1.png",
+					MessageSegmentFactory.ImageOptions().SetCache(false).SetProxy(true)),
+				MessageSegmentFactory.Text("hello"),
+			},
 			"[CQ:image,cache=0,proxy=1,file=http://www.baidu.com/img/bd_logo1.png]hello",
 		},
 		{
-			Message{Shake()},
+			Message{MessageSegmentFactory.Shake()},
 			"[CQ:shake]",
 		},
 	}

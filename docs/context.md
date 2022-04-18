@@ -23,7 +23,7 @@ Context基于Bot提供的API再次封装，提供了一些快速操作，让你�
 ```go
 engine.NewHandler(gonebot.EventNameGroupMessage).
     Use(gonebot.Keyword("涩图")).
-    Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+    Handle(func(ctx *gonebot.Context) {
         ctx.Ban(10)  // 禁言
         ctx.Reply("不可以涩涩")
     })
@@ -35,7 +35,7 @@ engine.NewHandler(gonebot.EventNameGroupMessage).
 // 将在群聊中报告的问题转发给Bot管理员
 engine.NewHandler(gonebot.EventNameGroupMessage).
     Use(gonebot.StartsWith("报告问题")).
-    Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+    Handle(func(ctx *gonebot.Context) {
         // 构造消息对象
         msg := gonebot.MsgMustPrintf("来自%s报告的问题：{}", ctx.Event.GetSessionId(), ctx.Event.GetMessage())
         // 调用SendPrivateMsg，私发给超管
@@ -45,6 +45,9 @@ engine.NewHandler(gonebot.EventNameGroupMessage).
 ```
 Context提供的快速操作显然无法实现定向发送给某个用户的功能，因此需要靠调用Bot提供的原始API来实现。详细API暂未有文档，可以参考[OneBotAPI](https://github.com/botuniverse/onebot-11/blob/master/api/public.md)
 
+## 处理流程控制
+Context提供了若干事件处理流程的控制函数，详见[下一节](./process_flow.md)
+
 ## 读写数据
 Context中存在`Keys`字段，可以供你存取你自己的数据（一般是中间处理结果）。
 
@@ -52,14 +55,15 @@ Context中存在`Keys`字段，可以供你存取你自己的数据（一般是�
 ### 写入
 回顾上一节中的卖瓜例子：
 ```go
-func CheckZhaoCha(ctx *gonebot.Context, act *gonebot.Action) {
+func CheckZhaoCha(ctx *gonebot.Context) bool {
     text := ctx.Event.ExtractPlainText() 
     if text == "我问你这瓜保熟吗？" {
         ctx.Set("找茬", true)  // 向CTX写入数据
         if ctx.Event.(*PrivateMessageEvent).Sender.Nickname == "刘华强" {
-            act.AbortHandler() 
+            return false
         }
     }
+    return true
 }
 ```
 该例子通过使用Context的`Set`函数，向Keys写入数据，以供后续使用。
@@ -121,7 +125,7 @@ v := ctx.GetString("name")   // ""
 ```go
 // 打断复读
 engine.NewHandler(gonebot.EventNameGroupMessage).
-    Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+    Handle(func(ctx *gonebot.Context) {
         text := ctx.Event.ExtractPlainText()
         // 获取下一个文字内容与当前事件完全一致的事件
         next := ctx.WaitForNextEvent(10, gonebot.FullMatch(text))
@@ -138,7 +142,7 @@ engine.NewHandler(gonebot.EventNameGroupMessage).
 // 简单起见，我们将指令简化为`雷普<@某人>`
 engine.NewHandler(gonebot.EventNameGroupMessage).
     Use(gonebot.Command("雷普")).
-    Handle(func(ctx *gonebot.Context, act *gonebot.Action) {
+    Handle(func(ctx *gonebot.Context) {
         msg := ctx.Event.GetMessage()
         targetIdStr := ""
         if msg.Len() <= 1 || (*msg)[1].Type != "at" {

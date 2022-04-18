@@ -14,9 +14,9 @@ type FrequencyLimiter struct {
 	lastCalls map[string]time.Time
 }
 
-func (f *FrequencyLimiter) Handle(ctx *gonebot.Context, action *gonebot.Action) {
+func (f *FrequencyLimiter) Handle(ctx *gonebot.Context) bool {
 	if f.Cd <= 0 {
-		return
+		return true
 	}
 	// lazy init
 	if f.lastCalls == nil {
@@ -27,14 +27,16 @@ func (f *FrequencyLimiter) Handle(ctx *gonebot.Context, action *gonebot.Action) 
 	key := f.KeyFunc(ctx)
 	if last, ok := f.lastCalls[key]; ok {
 		if now.Sub(last) < time.Duration(f.Cd)*time.Second {
-			action.AbortHandler()
 			if f.onFail != nil {
 				f.onFail(ctx)
 			}
+			return false
 		}
-		return
+		return true
 	}
+
 	f.lastCalls[key] = now
+	return true
 }
 
 // 设置触发限制后执行的回调方法
@@ -66,9 +68,9 @@ type DailyTimesLimiter struct {
 	callTimes map[string]int                    // 当天已经调用的次数
 }
 
-func (d *DailyTimesLimiter) Handle(ctx *gonebot.Context, action *gonebot.Action) {
+func (d *DailyTimesLimiter) Handle(ctx *gonebot.Context) bool {
 	if d.Times <= 0 {
-		return
+		return true
 	}
 
 	// 超过重置时间，重置次数，将重置时间+1天
@@ -85,16 +87,18 @@ func (d *DailyTimesLimiter) Handle(ctx *gonebot.Context, action *gonebot.Action)
 	key := d.KeyFunc(ctx)
 	if times, ok := d.callTimes[key]; ok {
 		if times >= d.Times {
-			action.AbortHandler()
 			if d.onFail != nil {
 				d.onFail(ctx)
 			}
+			return false
 		} else {
 			d.callTimes[key] = times + 1
 		}
 	} else {
 		d.callTimes[key] = 1
 	}
+
+	return true
 }
 
 // 设置触发限制后执行的回调方法
