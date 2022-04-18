@@ -49,19 +49,19 @@ func newContext(event I_Event, bot *Bot) *Context {
 // ===================
 
 // 回复
-func (ctx *Context) Reply(args ...interface{}) {
+func (ctx *Context) Reply(args ...interface{}) (err error) {
 	msg := MsgPrint(args...)
-	ctx.ReplyMsg(msg)
+	return ctx.ReplyMsg(msg)
 }
 
 // 回复
-func (ctx *Context) Replyf(tmpl string, args ...interface{}) {
+func (ctx *Context) Replyf(tmpl string, args ...interface{}) (err error) {
 	msg, _ := MsgPrintf(tmpl, args...)
-	ctx.ReplyMsg(msg)
+	return ctx.ReplyMsg(msg)
 }
 
 // 使用Message对象回复
-func (ctx *Context) ReplyMsg(msg Message) {
+func (ctx *Context) ReplyMsg(msg Message) (err error) {
 	if !ctx.Event.IsMessageEvent() {
 		log.Warnf("该事件不是消息事件，无法回复消息。(类型%s)", ctx.Event.GetEventName())
 		return
@@ -70,19 +70,20 @@ func (ctx *Context) ReplyMsg(msg Message) {
 		"reply":       msg,
 		"auto_escape": false,
 	}
-	err := ctx.Bot.handleQuickOperation(ctx.Event, data)
+	err = ctx.Bot.handleQuickOperation(ctx.Event, data)
 	if err != nil {
 		log.Errorf("回复消息失败: %s", err.Error())
 	}
+	return
 }
 
 // 文字回复
-func (ctx *Context) ReplyText(text string) {
-	ctx.ReplyRaw(MsgPrint(text))
+func (ctx *Context) ReplyText(text string) (err error) {
+	return ctx.ReplyRaw(MsgPrint(text))
 }
 
 // 回复，并对消息存在的CQ码进行转义
-func (ctx *Context) ReplyRaw(msg Message) {
+func (ctx *Context) ReplyRaw(msg Message) (err error) {
 	if !ctx.Event.IsMessageEvent() {
 		log.Warnf("该事件不是消息事件，无法回复消息。(类型%s)", ctx.Event.GetEventName())
 		return
@@ -92,110 +93,118 @@ func (ctx *Context) ReplyRaw(msg Message) {
 		"reply":       msg,
 		"auto_escape": true,
 	}
-	err := ctx.Bot.handleQuickOperation(ctx.Event, data)
+	err = ctx.Bot.handleQuickOperation(ctx.Event, data)
 	if err != nil {
 		log.Errorf("回复消息失败: %s", err.Error())
 	}
+	return
 }
 
 // 撤回事件对应的消息
-func (ctx *Context) Delete() {
+func (ctx *Context) Delete() (err error) {
 	if !ctx.Event.IsMessageEvent() {
 		log.Warnf("该事件不是消息事件，无法撤回消息。(类型%s)", ctx.Event.GetEventName())
 		return
 	}
-	err := ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
+	err = ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
 		"delete": true,
 	})
 	if err != nil {
 		log.Errorf("撤回消息失败: %s", err.Error())
 	}
+	return
 }
 
 // 踢出群聊
-func (ctx *Context) Kick() {
+func (ctx *Context) Kick() (err error) {
 	if _, ok := ctx.Event.(*GroupMessageEvent); !ok {
 		log.Warnf("该事件不是群聊事件，无法踢出群员。(类型%s)", ctx.Event.GetEventName())
 		return
 	}
-	err := ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
+	err = ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
 		"kick": true,
 	})
 	if err != nil {
 		log.Errorf("踢出群员失败: %s", err.Error())
 	}
+	return
 }
 
 // 禁言
-func (ctx *Context) Ban(duration int) {
+func (ctx *Context) Ban(duration int) (err error) {
 	if _, ok := ctx.Event.(*GroupMessageEvent); !ok {
 		log.Warnf("该事件不是群聊事件，无法禁言群员。(类型%s)", ctx.Event.GetEventName())
 		return
 	}
-	err := ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
+	err = ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
 		"ban":          true,
 		"ban_duration": duration,
 	})
 	if err != nil {
 		log.Errorf("禁言失败: %s", err.Error())
 	}
+	return
 }
 
 // 同意加好友请求
-func (ctx *Context) ApproveFriendRequest() {
+func (ctx *Context) ApproveFriendRequest() (err error) {
 	if _, ok := ctx.Event.(*FriendRequestEvent); !ok {
 		log.Warnf("该事件不是好友添加事件，无法同意好友请求。(类型%s)", ctx.Event.GetEventName())
 		return
 	}
-	err := ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
+	err = ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
 		"approve": true,
 	})
 	if err != nil {
 		log.Errorf("同意好友请求失败: %s", err.Error())
 	}
+	return
 }
 
 // 拒绝加好友请求
-func (ctx *Context) RejectFriendRequest() {
+func (ctx *Context) RejectFriendRequest() (err error) {
 	if _, ok := ctx.Event.(*FriendRequestEvent); !ok {
 		log.Warnf("该事件不是好友添加事件，无法拒绝好友请求。(类型%s)", ctx.Event.GetEventName())
 		return
 	}
-	err := ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
+	err = ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
 		"approve": false,
 	})
 	if err != nil {
 		log.Errorf("拒绝好友请求失败: %s", err.Error())
 	}
+	return
 }
 
 // 同意加群请求、或被邀请入群请求
-func (ctx *Context) ApproveGroupRequest() {
+func (ctx *Context) ApproveGroupRequest() (err error) {
 	if _, ok := ctx.Event.(*GroupRequestEvent); !ok {
 		log.Warnf("该事件不是群添加事件，无法同意群添加请求。(类型%s)", ctx.Event.GetEventName())
 		return
 	}
-	err := ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
+	err = ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
 		"approve": true,
 	})
 	if err != nil {
 		log.Errorf("同意群添加请求失败: %s", err.Error())
 	}
+	return
 }
 
 // 拒绝加群请求、或被邀请入群请求
-func (ctx *Context) RejectGroupRequest(reason string) {
+func (ctx *Context) RejectGroupRequest(reason string) (err error) {
 	if _, ok := ctx.Event.(*GroupRequestEvent); !ok {
 		log.Warnf("该事件不是群添加事件，无法拒绝群添加请求。(类型%s)", ctx.Event.GetEventName())
 		return
 	}
-	err := ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
+	err = ctx.Bot.handleQuickOperation(ctx.Event, quickOperationParams{
 		"approve": false,
 		"reason":  reason,
 	})
 	if err != nil {
 		log.Errorf("拒绝群添加请求失败: %s", err.Error())
 	}
+	return
 }
 
 // ===================
