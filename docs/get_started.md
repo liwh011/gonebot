@@ -19,31 +19,31 @@ package main
 import "github.com/liwh011/gonebot"
 
 func main() {
-	cfg := gonebot.BaseConfig{
-		// 正向Websocket，ws服务器的地址
-		Websocket: gonebot.WebsocketConfig{
-			Host:           "127.0.0.1",
-			Port:           6700,
-			AccessToken:    "",
-			ApiCallTimeout: 10,
-		},
-	}
-	engine := gonebot.NewEngine(&cfg)
+    cfg := gonebot.BaseConfig{
+        // 正向Websocket，ws服务器的地址
+        Websocket: gonebot.WebsocketConfig{
+            Host:           "127.0.0.1",
+            Port:           6700,
+            AccessToken:    "",
+            ApiCallTimeout: 10,
+        },
+    }
+    engine := gonebot.NewEngine(&cfg)
 
-	// 创建一个Handler，用来处理私聊消息事件。
-	engine.NewHandler(gonebot.EventNamePrivateMessage).
-		Use(gonebot.FullMatch("你几岁")).
-		Handle(func(ctx *gonebot.Context) {
-			ctx.Reply("24岁，是学生")
-		})
+    // 创建一个Handler，用来处理私聊消息事件。
+    engine.NewHandler(gonebot.EventNamePrivateMessage).
+        Use(gonebot.FullMatch("你几岁")).
+        Handle(func(ctx *gonebot.Context) {
+            ctx.Reply("24岁，是学生")
+        })
 
-	engine.NewHandler(gonebot.EventNamePrivateMessage).
-		Handle(func(ctx *gonebot.Context) {
-			ctx.Reply("哼哼啊啊啊啊啊啊啊啊啊啊啊啊")
-		})
+    engine.NewHandler(gonebot.EventNamePrivateMessage).
+        Handle(func(ctx *gonebot.Context) {
+            ctx.Reply("哼哼啊啊啊啊啊啊啊啊啊啊啊啊")
+        })
 
-	// 启动
-	engine.Run()
+    // 启动
+    engine.Run()
 }
 ```
 编译并运行。
