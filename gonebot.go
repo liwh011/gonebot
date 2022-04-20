@@ -39,6 +39,7 @@ func NewEngine(cfg Config) *Engine {
 
 func (engine *Engine) Run() {
 	// 启动连接到WebSocket服务器
+	log.Info("开始连接到WebSocket服务器，地址：", engine.ws.url)
 	go engine.ws.Start()
 
 	// 初始化Bot
