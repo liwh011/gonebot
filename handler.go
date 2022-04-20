@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 type Middleware func(*Context) bool
@@ -14,10 +15,14 @@ type Handler struct {
 	handleFunc  HandlerFunc
 	parent      *Handler
 	subHandlers map[EventName][]*Handler
+	mu          sync.RWMutex
 }
 
 // 使用中间件
 func (h *Handler) Use(middlewares ...Middleware) *Handler {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	
 	h.middlewares = append(h.middlewares, middlewares...)
 	return h
 }
@@ -29,6 +34,9 @@ func (h *Handler) Handle(f HandlerFunc) {
 
 // 添加子Handler
 func (h *Handler) addSubHandler(subHandler *Handler, eventType ...EventName) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	subHandler.parent = h
 	for _, event := range eventType {
 		h.subHandlers[event] = append(h.subHandlers[event], subHandler)
@@ -37,6 +45,9 @@ func (h *Handler) addSubHandler(subHandler *Handler, eventType ...EventName) {
 
 // 移除指定的子Handler
 func (h *Handler) removeSubHandler(handler *Handler, eventType ...EventName) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	if h.subHandlers == nil {
 		return
 	}
@@ -44,7 +55,7 @@ func (h *Handler) removeSubHandler(handler *Handler, eventType ...EventName) {
 		for i, subHandler := range h.subHandlers[event] {
 			if subHandler == handler {
 				h.subHandlers[event] = append(h.subHandlers[event][:i], h.subHandlers[event][i+1:]...)
-				break
+				return
 			}
 		}
 	}
@@ -74,6 +85,9 @@ func (h *Handler) NewHandler(eventTypes ...EventName) (handler *Handler) {
 }
 
 func (h *Handler) getMatchedHandler(eventName EventName) (handlers []*Handler) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	// 以下构造Handler链，以message.private.friend事件为例，
 	// 按message.private.friend、message.private、message、all的顺序将这些Handler放入链中
 	parts := strings.Split(string(eventName), ".")
