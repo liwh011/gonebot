@@ -22,7 +22,7 @@ type Handler struct {
 func (h *Handler) Use(middlewares ...Middleware) *Handler {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	
+
 	h.middlewares = append(h.middlewares, middlewares...)
 	return h
 }
@@ -102,77 +102,118 @@ func (h *Handler) getMatchedHandler(eventName EventName) (handlers []*Handler) {
 	return
 }
 
+type execution struct {
+	handlerQueue []*Handler
+	curHandler   *Handler
+	isLeaf       bool
+	middlewares  []Middleware
+	mwIdx        int
+	aborted      bool
+	next         bool
+	ctx          *Context
+	eventName    EventName
+}
+
+func (exe *execution) nextHandler() bool {
+	if exe.aborted {
+		return false
+	}
+	if !exe.next {
+		return false
+	}
+
+	// 按照先序的顺序，子Handler应塞在队头
+	if !exe.isLeaf {
+		exe.handlerQueue = append(exe.curHandler.getMatchedHandler(exe.eventName), exe.handlerQueue...)
+	}
+
+	// 队列空，没有了
+	if len(exe.handlerQueue) == 0 {
+		return false
+	}
+
+	exe.curHandler = exe.handlerQueue[0]
+	exe.handlerQueue = exe.handlerQueue[1:]
+	exe.isLeaf = len(exe.curHandler.subHandlers) == 0
+	exe.middlewares = exe.curHandler.middlewares
+	exe.mwIdx = 0
+	return true
+}
+
+func (exe *execution) abort() {
+	exe.aborted = true
+}
+
+func (exe *execution) run() {
+handlerLoop:
+	for exe.mwIdx < len(exe.middlewares) || exe.nextHandler() {
+		for !exe.aborted && exe.mwIdx < len(exe.middlewares) {
+			mw := exe.middlewares[exe.mwIdx]
+			exe.mwIdx++
+			if !mw(exe.ctx) {
+				exe.mwIdx = len(exe.middlewares)
+				continue handlerLoop
+			}
+		}
+		// 如果不是叶子节点，则继续执行子Handler
+		if !exe.isLeaf {
+			continue
+		}
+
+		if exe.aborted {
+			return
+		}
+
+		exe.next = false
+		if exe.curHandler.handleFunc != nil {
+			exe.curHandler.handleFunc(exe.ctx)
+		}
+	}
+}
+
+func (exe *execution) forkAndNext() {
+	if exe.aborted {
+		return
+	}
+
+	newExe := *exe
+	if newExe.mwIdx <= len(newExe.middlewares) {
+		//
+	} else {
+		newExe.next = true
+	}
+
+	newExe.ctx.abort = newExe.abort
+	newExe.ctx.next = newExe.forkAndNext
+	defer func() {
+		exe.ctx.abort = exe.abort
+		exe.ctx.next = exe.forkAndNext
+	}()
+
+	// 为了防止并发调用next，导致两个goroutine同时向后执行
+	// 故规定，调用next之后，原先的execution将停止处理，转由新的execution处理
+	exe.aborted = true
+
+	newExe.run()
+}
+
 func (h *Handler) handleEvent(ctx *Context) {
-	eventName := ctx.Event.GetEventName()
-	handlerQueue := []*Handler{h}
-	handler := handlerQueue[0]
-
-	mwIdx := 0                 // 中间件索引
-	nextHandler := true        // 是否继续执行下一个Handler
-	aborted := false           // 是否中断事件处理
-	runningMiddleware := false // 是否正在执行中间件，用于在next中判断
-
-	run := func() {
-	handlerLoop:
-		for !aborted && nextHandler && len(handlerQueue) > 0 {
-			// 当在middleware中调用next时,应：
-			//     继续执行后续的middleware，而不要重置mwidx；
-			//     继续这个Handler，而不是取队头的下一个Handler执行；
-			if !runningMiddleware {
-				mwIdx = 0
-				handler = handlerQueue[0]
-				handlerQueue = handlerQueue[1:]
-			}
-
-			for mwIdx < len(handler.middlewares) {
-				runningMiddleware = true
-
-				mw := handler.middlewares[mwIdx]
-				mwIdx++
-
-				// 当前Handler放弃处理
-				if !mw(ctx) {
-					runningMiddleware = false
-					continue handlerLoop
-				}
-
-				// 中断所有处理
-				if aborted {
-					return
-				}
-			}
-			runningMiddleware = false
-
-			// leaf
-			// 只有叶子结点才调用handleFunc
-			// handlerFunc中可能会改变nextHandler的值
-			if len(handler.subHandlers) == 0 {
-				// 默认不向下执行
-				nextHandler = false
-				if handler.handleFunc != nil {
-					handler.handleFunc(ctx)
-				}
-			} else {
-				// nonleaf
-				// 按照先序的顺序，子Handler应塞在队头
-				handlerQueue = append(handler.getMatchedHandler(eventName), handlerQueue...)
-			}
-		}
+	exe := execution{
+		handlerQueue: []*Handler{},
+		curHandler:   h,
+		isLeaf:       len(h.subHandlers) == 0,
+		middlewares:  h.middlewares,
+		mwIdx:        0,
+		aborted:      false,
+		next:         true,
+		ctx:          ctx,
+		eventName:    ctx.Event.GetEventName(),
 	}
 
-	ctx.action.next = func() {
-		// 在中间件中调用next，不会执行下一个Handler
-		if !runningMiddleware {
-			nextHandler = true
-		}
-		run()
-		aborted = true
-	}
-	ctx.action.abort = func() {
-		aborted = true
-	}
+	ctx.action.abort = exe.abort
+	ctx.action.next = exe.forkAndNext
 
-	run()
+	exe.run()
 }
 
 func OnEvent(eventName EventName) Middleware {
