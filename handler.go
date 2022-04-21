@@ -102,103 +102,125 @@ func (h *Handler) getMatchedHandler(eventName EventName) (handlers []*Handler) {
 	return
 }
 
-type execution struct {
-	handlerQueue []*Handler
-	curHandler   *Handler
-	isLeaf       bool
-	middlewares  []Middleware
-	mwIdx        int
-	aborted      bool
-	next         bool
-	ctx          *Context
-	eventName    EventName
+// 一次事件的处理过程，保存了当前Handler、当前中间件索引、是否中止等信息
+type process struct {
+	handlerQueue []*Handler // 待的Handler队列
+
+	curHandler  *Handler     // 当前Handler
+	isLeaf      bool         // 当前Handler是否是叶子节点
+	middlewares []Middleware // 当前Handler的中间件
+	mwIdx       int          // 当前正在执行的中间件的索引
+
+	aborted bool // 是否已经被中断
+	next    bool // 是否继续下一个Handler
+	done    bool // 当前Handler是否已经执行完毕
+
+	ctx       *Context  // 上下文
+	eventName EventName // 事件名称
 }
 
-func (exe *execution) nextHandler() bool {
-	if exe.aborted {
+// 更新process的当前Handler为队列的下一个，并重置标志
+func (proc *process) nextHandler() bool {
+	if proc.aborted {
 		return false
 	}
-	if !exe.next {
+	if !proc.next {
 		return false
 	}
 
-	// 按照先序的顺序，子Handler应塞在队头
-	if !exe.isLeaf {
-		exe.handlerQueue = append(exe.curHandler.getMatchedHandler(exe.eventName), exe.handlerQueue...)
+	// 当前Handler为非叶子节点，进行展开
+	if !proc.isLeaf {
+		// 按照先序的顺序，子Handler应塞在队头
+		proc.handlerQueue = append(proc.curHandler.getMatchedHandler(proc.eventName), proc.handlerQueue...)
 	}
 
 	// 队列空，没有了
-	if len(exe.handlerQueue) == 0 {
+	if len(proc.handlerQueue) == 0 {
 		return false
 	}
 
-	exe.curHandler = exe.handlerQueue[0]
-	exe.handlerQueue = exe.handlerQueue[1:]
-	exe.isLeaf = len(exe.curHandler.subHandlers) == 0
-	exe.middlewares = exe.curHandler.middlewares
-	exe.mwIdx = 0
+	proc.curHandler = proc.handlerQueue[0]
+	proc.handlerQueue = proc.handlerQueue[1:]
+	proc.middlewares = proc.curHandler.middlewares
+	proc.isLeaf = len(proc.curHandler.subHandlers) == 0
+	proc.mwIdx = 0
+	proc.done = false
 	return true
 }
 
-func (exe *execution) abort() {
-	exe.aborted = true
+// 中止过程
+func (proc *process) abort() {
+	proc.aborted = true
 }
 
-func (exe *execution) run() {
+// 运行过程
+func (proc *process) run() {
+	// 当前Handler尚未完成则继续，否则下一个
 handlerLoop:
-	for exe.mwIdx < len(exe.middlewares) || exe.nextHandler() {
-		for !exe.aborted && exe.mwIdx < len(exe.middlewares) {
-			mw := exe.middlewares[exe.mwIdx]
-			exe.mwIdx++
-			if !mw(exe.ctx) {
-				exe.mwIdx = len(exe.middlewares)
-				continue handlerLoop
+	for !proc.done || proc.nextHandler() {
+		// 顺序执行中间件
+		for !proc.aborted && proc.mwIdx < len(proc.middlewares) {
+			mw := proc.middlewares[proc.mwIdx]
+			if !mw(proc.ctx) {
+				proc.done = true     // 中间件返回false，标志当前Handler执行完毕
+				continue handlerLoop // 执行下一个Handler
 			}
-		}
-		// 如果不是叶子节点，则继续执行子Handler
-		if !exe.isLeaf {
-			continue
+			proc.mwIdx++
 		}
 
-		if exe.aborted {
+		if proc.aborted {
 			return
 		}
 
-		exe.next = false
-		if exe.curHandler.handleFunc != nil {
-			exe.curHandler.handleFunc(exe.ctx)
+		// 如果不是叶子节点，则向后执行它的子Handler
+		if !proc.isLeaf {
+			proc.done = true // 标志当前Handler执行完毕
+			continue
 		}
+
+		proc.next = false // 叶子节点，默认不向后执行
+		if proc.curHandler.handleFunc != nil {
+			// 提前设置done，让下次循环能正确获取下一个Handler。
+			// 否则会造成无限递归
+			proc.done = true
+			proc.curHandler.handleFunc(proc.ctx)
+		}
+		proc.done = true
 	}
 }
 
-func (exe *execution) forkAndNext() {
-	if exe.aborted {
+// 从当前process创建一个新的process，用于执行当前process的后续
+func (proc *process) forkAndNext() {
+	if proc.aborted {
 		return
 	}
 
-	newExe := *exe
-	if newExe.mwIdx <= len(newExe.middlewares) {
-		//
+	newProc := *proc
+
+	if newProc.mwIdx < len(newProc.middlewares) {
+		// 调用时，中间件没执行完，则后移一个继续执行
+		newProc.mwIdx++
 	} else {
-		newExe.next = true
+		// 调用时，处于处理函数中，则将next置为true
+		newProc.next = true
 	}
 
-	newExe.ctx.abort = newExe.abort
-	newExe.ctx.next = newExe.forkAndNext
+	newProc.ctx.abort = newProc.abort
+	newProc.ctx.next = newProc.forkAndNext
 	defer func() {
-		exe.ctx.abort = exe.abort
-		exe.ctx.next = exe.forkAndNext
+		proc.ctx.abort = proc.abort
+		proc.ctx.next = proc.forkAndNext
 	}()
 
-	// 为了防止并发调用next，导致两个goroutine同时向后执行
-	// 故规定，调用next之后，原先的execution将停止处理，转由新的execution处理
-	exe.aborted = true
+	// 为了防止并发调用next，导致两个goroutine同时向后执行，
+	// 故规定，调用next之后，原先的process将停止继续处理，转由新的process处理
+	proc.aborted = true
 
-	newExe.run()
+	newProc.run()
 }
 
 func (h *Handler) handleEvent(ctx *Context) {
-	exe := execution{
+	exe := process{
 		handlerQueue: []*Handler{},
 		curHandler:   h,
 		isLeaf:       len(h.subHandlers) == 0,
@@ -208,10 +230,11 @@ func (h *Handler) handleEvent(ctx *Context) {
 		next:         true,
 		ctx:          ctx,
 		eventName:    ctx.Event.GetEventName(),
+		done:         false,
 	}
 
-	ctx.action.abort = exe.abort
-	ctx.action.next = exe.forkAndNext
+	ctx.abort = exe.abort
+	ctx.next = exe.forkAndNext
 
 	exe.run()
 }
