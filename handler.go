@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 type Middleware func(*Context) bool
@@ -14,10 +15,14 @@ type Handler struct {
 	handleFunc  HandlerFunc
 	parent      *Handler
 	subHandlers map[EventName][]*Handler
+	mu          sync.RWMutex
 }
 
 // 使用中间件
 func (h *Handler) Use(middlewares ...Middleware) *Handler {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	h.middlewares = append(h.middlewares, middlewares...)
 	return h
 }
@@ -29,6 +34,9 @@ func (h *Handler) Handle(f HandlerFunc) {
 
 // 添加子Handler
 func (h *Handler) addSubHandler(subHandler *Handler, eventType ...EventName) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	subHandler.parent = h
 	for _, event := range eventType {
 		h.subHandlers[event] = append(h.subHandlers[event], subHandler)
@@ -37,6 +45,9 @@ func (h *Handler) addSubHandler(subHandler *Handler, eventType ...EventName) {
 
 // 移除指定的子Handler
 func (h *Handler) removeSubHandler(handler *Handler, eventType ...EventName) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	if h.subHandlers == nil {
 		return
 	}
@@ -44,7 +55,7 @@ func (h *Handler) removeSubHandler(handler *Handler, eventType ...EventName) {
 		for i, subHandler := range h.subHandlers[event] {
 			if subHandler == handler {
 				h.subHandlers[event] = append(h.subHandlers[event][:i], h.subHandlers[event][i+1:]...)
-				break
+				return
 			}
 		}
 	}
@@ -74,6 +85,9 @@ func (h *Handler) NewHandler(eventTypes ...EventName) (handler *Handler) {
 }
 
 func (h *Handler) getMatchedHandler(eventName EventName) (handlers []*Handler) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	// 以下构造Handler链，以message.private.friend事件为例，
 	// 按message.private.friend、message.private、message、all的顺序将这些Handler放入链中
 	parts := strings.Split(string(eventName), ".")
@@ -88,77 +102,142 @@ func (h *Handler) getMatchedHandler(eventName EventName) (handlers []*Handler) {
 	return
 }
 
+// 一次事件的处理过程，保存了当前Handler、当前中间件索引、是否中止等信息
+type process struct {
+	handlerQueue []*Handler // 待的Handler队列
+
+	curHandler  *Handler     // 当前Handler
+	isLeaf      bool         // 当前Handler是否是叶子节点
+	middlewares []Middleware // 当前Handler的中间件
+	mwIdx       int          // 当前正在执行的中间件的索引
+
+	aborted bool // 是否已经被中断
+	next    bool // 是否继续下一个Handler
+	done    bool // 当前Handler是否已经执行完毕
+
+	ctx       *Context  // 上下文
+	eventName EventName // 事件名称
+}
+
+// 更新process的当前Handler为队列的下一个，并重置标志
+func (proc *process) nextHandler() bool {
+	if proc.aborted {
+		return false
+	}
+	if !proc.next {
+		return false
+	}
+
+	// 当前Handler为非叶子节点，进行展开
+	if !proc.isLeaf {
+		// 按照先序的顺序，子Handler应塞在队头
+		proc.handlerQueue = append(proc.curHandler.getMatchedHandler(proc.eventName), proc.handlerQueue...)
+	}
+
+	// 队列空，没有了
+	if len(proc.handlerQueue) == 0 {
+		return false
+	}
+
+	proc.curHandler = proc.handlerQueue[0]
+	proc.handlerQueue = proc.handlerQueue[1:]
+	proc.middlewares = proc.curHandler.middlewares
+	proc.isLeaf = len(proc.curHandler.subHandlers) == 0
+	proc.mwIdx = 0
+	proc.done = false
+	return true
+}
+
+// 中止过程
+func (proc *process) abort() {
+	proc.aborted = true
+}
+
+// 运行过程
+func (proc *process) run() {
+	// 当前Handler尚未完成则继续，否则下一个
+handlerLoop:
+	for !proc.done || proc.nextHandler() {
+		// 顺序执行中间件
+		for !proc.aborted && proc.mwIdx < len(proc.middlewares) {
+			mw := proc.middlewares[proc.mwIdx]
+			if !mw(proc.ctx) {
+				proc.done = true     // 中间件返回false，标志当前Handler执行完毕
+				continue handlerLoop // 执行下一个Handler
+			}
+			proc.mwIdx++
+		}
+
+		if proc.aborted {
+			return
+		}
+
+		// 如果不是叶子节点，则向后执行它的子Handler
+		if !proc.isLeaf {
+			proc.done = true // 标志当前Handler执行完毕
+			continue
+		}
+
+		proc.next = false // 叶子节点，默认不向后执行
+		if proc.curHandler.handleFunc != nil {
+			// 提前设置done，让下次循环能正确获取下一个Handler。
+			// 否则会造成无限递归
+			proc.done = true
+			proc.curHandler.handleFunc(proc.ctx)
+		}
+		proc.done = true
+	}
+}
+
+// 从当前process创建一个新的process，用于执行当前process的后续
+func (proc *process) forkAndNext() {
+	if proc.aborted {
+		return
+	}
+
+	// 为了防止并发调用next，导致两个goroutine同时向后执行，
+	// 故规定，调用next之后，原先的process将停止继续处理，转由新的process处理
+	proc.aborted = true
+
+	newProc := *proc
+	newProc.aborted = false
+
+	if newProc.mwIdx < len(newProc.middlewares) {
+		// 调用时，中间件没执行完，则后移一个继续执行
+		newProc.mwIdx++
+	} else {
+		// 调用时，处于处理函数中，则将next置为true
+		newProc.next = true
+	}
+
+	newProc.ctx.abort = newProc.abort
+	newProc.ctx.next = newProc.forkAndNext
+	defer func() {
+		proc.ctx.abort = proc.abort
+		proc.ctx.next = proc.forkAndNext
+	}()
+
+	newProc.run()
+}
+
 func (h *Handler) handleEvent(ctx *Context) {
-	eventName := ctx.Event.GetEventName()
-	handlerQueue := []*Handler{h}
-	handler := handlerQueue[0]
-
-	mwIdx := 0                 // 中间件索引
-	nextHandler := true        // 是否继续执行下一个Handler
-	aborted := false           // 是否中断事件处理
-	runningMiddleware := false // 是否正在执行中间件，用于在next中判断
-
-	run := func() {
-	handlerLoop:
-		for !aborted && nextHandler && len(handlerQueue) > 0 {
-			// 当在middleware中调用next时,应：
-			//     继续执行后续的middleware，而不要重置mwidx；
-			//     继续这个Handler，而不是取队头的下一个Handler执行；
-			if !runningMiddleware {
-				mwIdx = 0
-				handler = handlerQueue[0]
-				handlerQueue = handlerQueue[1:]
-			}
-
-			for mwIdx < len(handler.middlewares) {
-				runningMiddleware = true
-
-				mw := handler.middlewares[mwIdx]
-				mwIdx++
-
-				// 当前Handler放弃处理
-				if !mw(ctx) {
-					runningMiddleware = false
-					continue handlerLoop
-				}
-
-				// 中断所有处理
-				if aborted {
-					return
-				}
-			}
-			runningMiddleware = false
-
-			// leaf
-			// 只有叶子结点才调用handleFunc
-			// handlerFunc中可能会改变nextHandler的值
-			if len(handler.subHandlers) == 0 {
-				// 默认不向下执行
-				nextHandler = false
-				if handler.handleFunc != nil {
-					handler.handleFunc(ctx)
-				}
-			} else {
-				// nonleaf
-				// 按照先序的顺序，子Handler应塞在队头
-				handlerQueue = append(handler.getMatchedHandler(eventName), handlerQueue...)
-			}
-		}
+	exe := process{
+		handlerQueue: []*Handler{},
+		curHandler:   h,
+		isLeaf:       len(h.subHandlers) == 0,
+		middlewares:  h.middlewares,
+		mwIdx:        0,
+		aborted:      false,
+		next:         true,
+		ctx:          ctx,
+		eventName:    ctx.Event.GetEventName(),
+		done:         false,
 	}
 
-	ctx.action.next = func() {
-		// 在中间件中调用next，不会执行下一个Handler
-		if !runningMiddleware {
-			nextHandler = true
-		}
-		run()
-		aborted = true
-	}
-	ctx.action.abort = func() {
-		aborted = true
-	}
+	ctx.abort = exe.abort
+	ctx.next = exe.forkAndNext
 
-	run()
+	exe.run()
 }
 
 func OnEvent(eventName EventName) Middleware {

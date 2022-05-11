@@ -39,6 +39,7 @@ func NewEngine(cfg Config) *Engine {
 
 func (engine *Engine) Run() {
 	// 启动连接到WebSocket服务器
+	log.Info("开始连接到WebSocket服务器，地址：", engine.ws.url)
 	go engine.ws.Start()
 
 	// 初始化Bot
@@ -58,17 +59,11 @@ func (engine *Engine) Run() {
 		}
 
 		ctx := newContext(ev, engine.bot)
-		engine.handleEvent(ctx)
+		go engine.handleEvent(ctx)
 	}
 
 }
 
-func (engine *Engine) NewService(name string) *Service {
-	h := engine.NewHandler()
-	sv := newService(name)
-	sv.Handler = *h
-	return sv
-}
 
 // Engine的生命周期钩子
 type engineHookManager struct {

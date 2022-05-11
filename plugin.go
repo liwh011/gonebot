@@ -3,6 +3,8 @@ package gonebot
 import (
 	"fmt"
 	"reflect"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -59,6 +61,7 @@ func (pm *pluginManager) InitPlugins(engine *Engine) {
 
 		proxy := newEngineProxy(engine)
 		plugin.Init(&proxy)
+		log.Infof("插件%s加载完毕", id)
 	}
 }
 

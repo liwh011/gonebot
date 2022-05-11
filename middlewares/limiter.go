@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"sync"
 	"time"
 
 	"github.com/liwh011/gonebot"
@@ -12,30 +13,36 @@ type FrequencyLimiter struct {
 	KeyFunc   func(ctx *gonebot.Context) string // 标识一次调用的函数
 	onFail    func(ctx *gonebot.Context)        // 如果被限制，调用该方法
 	lastCalls map[string]time.Time
+	mu        sync.Mutex
 }
 
 func (f *FrequencyLimiter) Handle(ctx *gonebot.Context) bool {
 	if f.Cd <= 0 {
 		return true
 	}
+	key := f.KeyFunc(ctx)
+
+	f.mu.Lock()
 	// lazy init
 	if f.lastCalls == nil {
 		f.lastCalls = make(map[string]time.Time)
 	}
 
 	now := time.Now()
-	key := f.KeyFunc(ctx)
-	if last, ok := f.lastCalls[key]; ok {
-		if now.Sub(last) < time.Duration(f.Cd)*time.Second {
-			if f.onFail != nil {
-				f.onFail(ctx)
-			}
-			return false
+	last, ok := f.lastCalls[key]                                     // 上次调用时间
+	ready := !ok || now.Sub(last) >= time.Duration(f.Cd)*time.Second // 冷却时间是否就绪
+	if ready {
+		f.lastCalls[key] = now // 刷新调用时间为现在
+	}
+	f.mu.Unlock()
+
+	if !ready {
+		if f.onFail != nil {
+			f.onFail(ctx)
 		}
-		return true
+		return false
 	}
 
-	f.lastCalls[key] = now
 	return true
 }
 
@@ -66,6 +73,7 @@ type DailyTimesLimiter struct {
 	onFail    func(ctx *gonebot.Context)        // 如果被限制，调用该方法
 	resetTime time.Time                         // 每天重置的时间
 	callTimes map[string]int                    // 当天已经调用的次数
+	mu        sync.Mutex
 }
 
 func (d *DailyTimesLimiter) Handle(ctx *gonebot.Context) bool {
@@ -79,23 +87,26 @@ func (d *DailyTimesLimiter) Handle(ctx *gonebot.Context) bool {
 		d.resetTime = d.resetTime.AddDate(0, 0, 1)
 	}
 
+	key := d.KeyFunc(ctx)
+
+	d.mu.Lock()
 	// lazy init
 	if d.callTimes == nil {
 		d.callTimes = make(map[string]int)
 	}
 
-	key := d.KeyFunc(ctx)
-	if times, ok := d.callTimes[key]; ok {
-		if times >= d.Times {
-			if d.onFail != nil {
-				d.onFail(ctx)
-			}
-			return false
-		} else {
-			d.callTimes[key] = times + 1
+	times, ok := d.callTimes[key]    // 当天已经调用的次数
+	exceed := ok && times >= d.Times // 是否超过次数限制
+	if !exceed {
+		d.callTimes[key] = times + 1
+	}
+	d.mu.Unlock()
+
+	if exceed {
+		if d.onFail != nil {
+			d.onFail(ctx)
 		}
-	} else {
-		d.callTimes[key] = 1
+		return false
 	}
 
 	return true
@@ -105,6 +116,10 @@ func (d *DailyTimesLimiter) Handle(ctx *gonebot.Context) bool {
 func (d *DailyTimesLimiter) OnFail(callback func(ctx *gonebot.Context)) *DailyTimesLimiter {
 	d.onFail = callback
 	return d
+}
+
+func (d *DailyTimesLimiter) GetResetTime() time.Time {
+	return d.resetTime
 }
 
 // 设置重置时间（时、分）

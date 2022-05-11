@@ -2,6 +2,7 @@ package gonebot
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -26,6 +27,7 @@ type Context struct {
 	Keys    map[string]interface{} // 存放一些提取出来的数据
 	Bot     *Bot                   // Bot实例
 	Handler *Handler
+	mu      sync.RWMutex
 	action
 }
 
@@ -214,15 +216,24 @@ func (ctx *Context) RejectGroupRequest(reason string) (err error) {
 // ===================
 
 func (ctx *Context) Set(key string, value interface{}) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+
 	ctx.Keys[key] = value
 }
 
 func (ctx *Context) Get(key string) (v interface{}, exist bool) {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+
 	v, exist = ctx.Keys[key]
 	return
 }
 
 func (ctx *Context) MustGet(key string) interface{} {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+
 	v, exist := ctx.Keys[key]
 	if !exist {
 		panic(fmt.Sprintf("键 %s 不存在", key))
@@ -231,6 +242,9 @@ func (ctx *Context) MustGet(key string) interface{} {
 }
 
 func (ctx *Context) GetString(key string) (s string) {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+
 	v, exist := ctx.Keys[key]
 	if !exist {
 		return
@@ -243,6 +257,9 @@ func (ctx *Context) GetString(key string) (s string) {
 }
 
 func (ctx *Context) GetInt(key string) (i int) {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+
 	v, exist := ctx.Keys[key]
 	if !exist {
 		return
@@ -255,6 +272,9 @@ func (ctx *Context) GetInt(key string) (i int) {
 }
 
 func (ctx *Context) GetInt64(key string) (i64 int64) {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+
 	v, exist := ctx.Keys[key]
 	if !exist {
 		return
@@ -267,6 +287,9 @@ func (ctx *Context) GetInt64(key string) (i64 int64) {
 }
 
 func (ctx *Context) GetMap(key string) (m map[string]interface{}) {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+
 	v, exist := ctx.Keys[key]
 	if !exist {
 		return
@@ -279,6 +302,9 @@ func (ctx *Context) GetMap(key string) (m map[string]interface{}) {
 }
 
 func (ctx *Context) GetSlice(key string) (s []interface{}) {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	
 	v, exist := ctx.Keys[key]
 	if !exist {
 		return

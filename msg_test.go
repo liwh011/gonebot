@@ -7,8 +7,8 @@ import (
 
 func Test_Image(t *testing.T) {
 
-	a := MessageSegmentFactory.Image("http://www.baidu.com/img/bd_logo1.png",
-		MessageSegmentFactory.ImageOptions().SetCache(false).SetProxy(true))
+	a := MsgFactory.Image("http://www.baidu.com/img/bd_logo1.png",
+		MsgFactory.ImageOptions().SetCache(false).SetProxy(true))
 	fmt.Printf("%v\n", a)
 }
 
@@ -34,7 +34,7 @@ func Test_Format(t *testing.T) {
 		},
 		{
 			"word:%s, atsb:{}, num:%d",
-			[]interface{}{"hello", MessageSegmentFactory.AtSomeone(114514), 114},
+			[]interface{}{"hello", MsgFactory.AtSomeone(114514), 114},
 			func(msg Message) bool {
 				return (len(msg) == 3 && msg[0].IsText() && msg[0].Data["text"] == "word:hello, atsb:" &&
 					msg[1].Type == "at" && msg[2].IsText() && msg[2].Data["text"] == ", num:114")
@@ -42,7 +42,7 @@ func Test_Format(t *testing.T) {
 		},
 		{
 			"atsb:{}, num:%d, face:{}",
-			[]interface{}{MessageSegmentFactory.AtSomeone(114514), 114, MessageSegmentFactory.Face(1919)},
+			[]interface{}{MsgFactory.AtSomeone(114514), 114, MsgFactory.Face(1919)},
 			func(msg Message) bool {
 				return (len(msg) == 4 &&
 					msg[0].IsText() && msg[0].Data["text"] == "atsb:" &&
@@ -53,7 +53,7 @@ func Test_Format(t *testing.T) {
 		},
 		{
 			"{}, num:%d, face:{} asdsa",
-			[]interface{}{MessageSegmentFactory.AtSomeone(114514), 114, MessageSegmentFactory.Face(1919)},
+			[]interface{}{MsgFactory.AtSomeone(114514), 114, MsgFactory.Face(1919)},
 			func(msg Message) bool {
 				return (len(msg) == 4 &&
 					msg[0].Type == "at" &&
@@ -71,7 +71,7 @@ func Test_Format(t *testing.T) {
 		},
 		{
 			"aa{}",
-			[]interface{}{MsgPrint("114514", MessageSegmentFactory.AtAll())},
+			[]interface{}{MsgPrint("114514", MsgFactory.AtAll())},
 			func(msg Message) bool {
 				t.Logf("%v", msg)
 				return true
@@ -96,19 +96,19 @@ func Test_String(t *testing.T) {
 		expect string
 	}{
 		{
-			Message{MessageSegmentFactory.AtAll(), MessageSegmentFactory.Text("hello")},
+			Message{MsgFactory.AtAll(), MsgFactory.Text("hello")},
 			"[CQ:at,qq=all]hello",
 		},
 		{
 			Message{
-				MessageSegmentFactory.Image("http://www.baidu.com/img/bd_logo1.png",
-					MessageSegmentFactory.ImageOptions().SetCache(false).SetProxy(true)),
-				MessageSegmentFactory.Text("hello"),
+				MsgFactory.Image("http://www.baidu.com/img/bd_logo1.png",
+					MsgFactory.ImageOptions().SetCache(false).SetProxy(true)),
+				MsgFactory.Text("hello"),
 			},
 			"[CQ:image,cache=0,proxy=1,file=http://www.baidu.com/img/bd_logo1.png]hello",
 		},
 		{
-			Message{MessageSegmentFactory.Shake()},
+			Message{MsgFactory.Shake()},
 			"[CQ:shake]",
 		},
 	}
