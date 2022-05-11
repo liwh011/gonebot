@@ -59,17 +59,11 @@ func (engine *Engine) Run() {
 		}
 
 		ctx := newContext(ev, engine.bot)
-		engine.handleEvent(ctx)
+		go engine.handleEvent(ctx)
 	}
 
 }
 
-func (engine *Engine) NewService(name string) *Service {
-	h := engine.NewHandler()
-	sv := newService(name)
-	sv.Handler = *h
-	return sv
-}
 
 // Engine的生命周期钩子
 type engineHookManager struct {
