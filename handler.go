@@ -195,7 +195,12 @@ func (proc *process) forkAndNext() {
 		return
 	}
 
+	// 为了防止并发调用next，导致两个goroutine同时向后执行，
+	// 故规定，调用next之后，原先的process将停止继续处理，转由新的process处理
+	proc.aborted = true
+
 	newProc := *proc
+	newProc.aborted = false
 
 	if newProc.mwIdx < len(newProc.middlewares) {
 		// 调用时，中间件没执行完，则后移一个继续执行
@@ -211,10 +216,6 @@ func (proc *process) forkAndNext() {
 		proc.ctx.abort = proc.abort
 		proc.ctx.next = proc.forkAndNext
 	}()
-
-	// 为了防止并发调用next，导致两个goroutine同时向后执行，
-	// 故规定，调用next之后，原先的process将停止继续处理，转由新的process处理
-	proc.aborted = true
 
 	newProc.run()
 }
