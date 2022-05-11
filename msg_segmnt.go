@@ -37,7 +37,7 @@ func (seg MessageSegment) String() string {
 
 type messageSegmentFactory struct{}
 
-var MessageSegmentFactory = messageSegmentFactory{}
+var MsgFactory = messageSegmentFactory{}
 
 // 纯文本
 func (f messageSegmentFactory) Text(text string) MessageSegment {
