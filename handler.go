@@ -221,7 +221,7 @@ func (proc *process) forkAndNext() {
 }
 
 func (h *Handler) handleEvent(ctx *Context) {
-	exe := process{
+	proc := process{
 		handlerQueue: []*Handler{},
 		curHandler:   h,
 		isLeaf:       len(h.subHandlers) == 0,
@@ -234,10 +234,10 @@ func (h *Handler) handleEvent(ctx *Context) {
 		done:         false,
 	}
 
-	ctx.abort = exe.abort
-	ctx.next = exe.forkAndNext
+	ctx.abort = proc.abort
+	ctx.next = proc.forkAndNext
 
-	exe.run()
+	proc.run()
 }
 
 func OnEvent(eventName EventName) Middleware {
