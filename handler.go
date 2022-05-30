@@ -438,6 +438,31 @@ func Keyword(keywords ...string) Middleware {
 	}
 }
 
+type RegexpMatchResult struct {
+	matchGroup []string
+	groupNames []string
+}
+
+func (r RegexpMatchResult) Len() int {
+	return len(r.matchGroup)
+}
+
+func (r RegexpMatchResult) Get(idx int) string {
+	if idx >= len(r.matchGroup) {
+		return ""
+	}
+	return r.matchGroup[idx]
+}
+
+func (r RegexpMatchResult) GetByName(name string) string {
+	for i, n := range r.groupNames {
+		if n == name {
+			return r.matchGroup[i]
+		}
+	}
+	return ""
+}
+
 // 事件为MessageEvent，且消息中存在子串满足正则表达式
 func Regex(regex regexp.Regexp) Middleware {
 	return func(ctx *Context) bool {
@@ -452,8 +477,9 @@ func Regex(regex regexp.Regexp) Middleware {
 			return false
 		}
 
-		ctx.Set("regex", map[string]interface{}{
-			"matched": find,
+		ctx.Set("regex", RegexpMatchResult{
+			matchGroup: find,
+			groupNames: regex.SubexpNames(),
 		})
 
 		return true
