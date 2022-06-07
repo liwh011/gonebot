@@ -115,6 +115,8 @@ type process struct {
 	next    bool // 是否继续下一个Handler
 	done    bool // 当前Handler是否已经执行完毕
 
+	processedByHandler bool // 是否有Handler处理过当前事件
+
 	ctx       *Context  // 上下文
 	eventName EventName // 事件名称
 }
@@ -155,9 +157,18 @@ func (proc *process) abort() {
 
 // 运行过程
 func (proc *process) run() {
+	startHandler := proc.curHandler // 记录开始的Handler
+	prevHandler := proc.curHandler  // 上一个Handler，用于比较Handler是否发生变化
+
 	// 当前Handler尚未完成则继续，否则下一个
 handlerLoop:
 	for !proc.done || proc.nextHandler() {
+		if prevHandler != proc.curHandler {
+			// 当前Handler发生了变化，需要更新CTX的Handler
+			proc.ctx.Handler = proc.curHandler
+			prevHandler = proc.curHandler
+		}
+
 		// 顺序执行中间件
 		for !proc.aborted && proc.mwIdx < len(proc.middlewares) {
 			mw := proc.middlewares[proc.mwIdx]
@@ -178,21 +189,25 @@ handlerLoop:
 			continue
 		}
 
-		proc.next = false // 叶子节点，默认不向后执行
 		if proc.curHandler.handleFunc != nil {
+			proc.next = false // 叶子节点，默认不向后执行
 			// 提前设置done，让下次循环能正确获取下一个Handler。
 			// 否则会造成无限递归
 			proc.done = true
 			proc.curHandler.handleFunc(proc.ctx)
+			proc.processedByHandler = true
 		}
 		proc.done = true
 	}
+
+	// 复原CTX的Handler
+	proc.ctx.Handler = startHandler
 }
 
 // 从当前process创建一个新的process，用于执行当前process的后续
-func (proc *process) forkAndNext() {
+func (proc *process) forkAndNext() bool {
 	if proc.aborted {
-		return
+		return false
 	}
 
 	// 为了防止并发调用next，导致两个goroutine同时向后执行，
@@ -218,6 +233,8 @@ func (proc *process) forkAndNext() {
 	}()
 
 	newProc.run()
+	proc.processedByHandler = newProc.processedByHandler
+	return newProc.processedByHandler
 }
 
 func (h *Handler) handleEvent(ctx *Context) {

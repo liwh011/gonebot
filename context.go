@@ -9,13 +9,13 @@ import (
 )
 
 type action struct {
-	next  func()
+	next  func() bool
 	abort func()
 }
 
-// 继续后续执行（后续执行完毕后才返回）
-func (a *action) Next() {
-	a.next()
+// 继续后续执行（后续执行完毕后才返回），返回值代表是否事件被Handler处理过
+func (a *action) Next() bool {
+	return a.next()
 }
 
 func (a *action) Abort() {
@@ -41,7 +41,7 @@ func newContext(event I_Event, bot *Bot) *Context {
 		atSenderWhenReply: true,
 
 		action: action{
-			next:  func() {},
+			next:  func() bool { return false },
 			abort: func() {},
 		},
 	}
