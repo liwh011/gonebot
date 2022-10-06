@@ -233,7 +233,7 @@ type GroupMessageEventSender struct {
 
 type PrivateMessageEvent struct {
 	MessageEvent
-	Sender *MessageEventSender // 发送人信息
+	Sender *MessageEventSender `json:"sender"` // 发送人信息
 }
 
 func (e *PrivateMessageEvent) GetEventDescription() string {
