@@ -136,6 +136,14 @@ func (p *EngineProxy) GetEngineConfig() *BaseConfig {
 	return p.engine.Config
 }
 
+func (p *EngineProxy) GetEngine() *Engine {
+	return p.engine
+}
+
+func (p *EngineProxy) GetBot() *Bot {
+	return p.engine.bot
+}
+
 func convertConfigMapToStruct(cfgStruct interface{}, srcMap PluginConfigMap) {
 	if srcMap == nil {
 		return
