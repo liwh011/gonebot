@@ -1,6 +1,10 @@
 package gonebot
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
@@ -45,25 +49,37 @@ func (engine *Engine) Run() {
 	// 初始化Bot
 	engine.bot.Init()
 
+	osc := make(chan os.Signal, 1)
+	signal.Notify(osc, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGHUP)
+
 	// 处理消息
 	ch := engine.ws.Subscribe()
-	for by := range ch {
-		// 生成事件
-		data := gjson.ParseBytes(by)
-		ev := convertJsonObjectToEvent(data)
+MSG_LOOP:
+	for {
+		select {
+		case by := <-ch:
+			// 生成事件
+			data := gjson.ParseBytes(by)
+			ev := convertJsonObjectToEvent(data)
 
-		if ev.GetPostType() == PostTypeMetaEvent {
-			// log.Debug(ev.GetEventDescription())
-		} else {
-			log.Info(ev.GetEventDescription())
+			if ev.GetPostType() == PostTypeMetaEvent {
+				// log.Debug(ev.GetEventDescription())
+			} else {
+				log.Info(ev.GetEventDescription())
+			}
+
+			ctx := newContext(ev, engine.bot)
+			go engine.handleEvent(ctx)
+
+		case s := <-osc:
+			log.Infof("收到信号%s，停止处理消息", s)
+			break MSG_LOOP
 		}
-
-		ctx := newContext(ev, engine.bot)
-		go engine.handleEvent(ctx)
 	}
 
+	log.Info("正在执行清理工作")
+	EngineHookManager.runHook(LifecycleHookTypeWillTerminate, engine)
 }
-
 
 // Engine的生命周期钩子
 type engineHookManager struct {
@@ -78,6 +94,7 @@ type lifecycleHookType int
 const (
 	// Engine创建后触发
 	LifecycleHookTypeOnCreated lifecycleHookType = iota
+	LifecycleHookTypeWillTerminate
 )
 
 func (eh *engineHookManager) runHook(hookType lifecycleHookType, engine *Engine) {
@@ -105,4 +122,9 @@ func (eh *engineHookManager) addHook(hookType lifecycleHookType, hook *func(*Eng
 // 注册OnCreated钩子
 func (eh *engineHookManager) OnCreated(f func(*Engine)) (cancel func()) {
 	return eh.addHook(LifecycleHookTypeOnCreated, &f)
+}
+
+// 注册WillTerminate钩子
+func (eh *engineHookManager) WillTerminate(f func(*Engine)) (cancel func()) {
+	return eh.addHook(LifecycleHookTypeWillTerminate, &f)
 }
