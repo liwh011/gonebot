@@ -47,7 +47,7 @@ func Test_convertMapToConfig(t *testing.T) {
 
 type TestPlugin struct{}
 
-func (p *TestPlugin) Init(proxy *EngineProxy) {
+func (p *TestPlugin) Init(proxy *PluginHub) {
 	fmt.Println("init")
 	proxy.NewHandler(EventNamePrivateMessage).
 		Handle(func(c *Context) {
