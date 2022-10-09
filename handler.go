@@ -387,25 +387,26 @@ func EndsWith(suffix ...string) Middleware {
 }
 
 // 事件为MessageEvent，且消息开头为指令
-func Command(cmdPrefix string, cmd ...string) Middleware {
+func Command(cmd ...string) Middleware {
 	return func(ctx *Context) bool {
 		e := ctx.Event
 		if !e.IsMessageEvent() {
 			return false
 		}
 
+		cmdPrefixs := ctx.Engine.Config.CmdPrefix
 		msgText := e.ExtractPlainText()
-		reg := regexp.MustCompile(fmt.Sprintf("^%s(%s)", cmdPrefix, strings.Join(cmd, "|")))
-		find := reg.FindString(msgText)
-		if find == "" {
+		reg := regexp.MustCompile(fmt.Sprintf("^(%s)(%s)", strings.Join(cmdPrefixs, "|"), strings.Join(cmd, "|")))
+		find := reg.FindStringSubmatch(msgText)
+		if find == nil {
 			return false
 		}
 
 		ctx.Set("command", map[string]interface{}{
-			"raw_cmd": find,
-			"matched": find[len(cmdPrefix):],
-			"text":    msgText[len(find):],
-			"raw":     msgText,
+			"raw_cmd": find[0],                // 前缀+命令
+			"matched": find[2],                // 命令
+			"text":    msgText[len(find[0]):], // 后面的全部文本
+			"raw":     msgText,                // 原始消息（包含命令和文本）
 		})
 
 		return true

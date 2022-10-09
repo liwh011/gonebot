@@ -72,7 +72,7 @@ MSG_LOOP:
 				log.Info(ev.GetEventDescription())
 			}
 
-			ctx := newContext(ev, engine.bot)
+			ctx := newContext(ev, engine)
 			go engine.handleEvent(ctx)
 
 		case s := <-osc:
@@ -146,10 +146,12 @@ func (eh *engineHookManager) EngineWillTerminate(f EngineHookCallback) (cancel f
 
 type PluginHookCallback func(*PluginHub)
 
+// 每个插件即将加载时触发
 func (eh *engineHookManager) PluginWillLoad(f PluginHookCallback) (cancel func()) {
 	return eh.addHook(LifecycleHookType_PluginWillLoad, &f)
 }
 
+// 每个插件加载完毕时触发
 func (eh *engineHookManager) PluginLoaded(f PluginHookCallback) (cancel func()) {
 	return eh.addHook(LifecycleHookType_PluginLoaded, &f)
 }

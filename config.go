@@ -21,6 +21,7 @@ type WebsocketConfig struct {
 type PluginConfigMap map[string]interface{} // 插件配置
 type BaseConfig struct {
 	Websocket WebsocketConfig `yaml:"websocket"`
+	CmdPrefix []string        `yaml:"cmd_prefix"` // 命令前缀
 	Plugin    struct {
 		Enable map[string]bool            `yaml:"enable"`
 		Config map[string]PluginConfigMap `yaml:"config"`

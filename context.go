@@ -26,17 +26,19 @@ type Context struct {
 	Event             I_Event                // 事件（实际上是个指针）
 	Keys              map[string]interface{} // 存放一些提取出来的数据
 	Bot               *Bot                   // Bot实例
+	Engine            *Engine                // Engine实例
 	Handler           *Handler
 	atSenderWhenReply bool
 	mu                sync.RWMutex
 	action
 }
 
-func newContext(event I_Event, bot *Bot) *Context {
+func newContext(event I_Event, engine *Engine) *Context {
 	return &Context{
-		Event: event,
-		Keys:  make(map[string]interface{}),
-		Bot:   bot,
+		Event:  event,
+		Keys:   make(map[string]interface{}),
+		Bot:    engine.bot,
+		Engine: engine,
 
 		atSenderWhenReply: true,
 
