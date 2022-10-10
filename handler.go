@@ -405,6 +405,13 @@ func FromSuperuser() Middleware {
 		return false
 	}
 }
+
+type prefixMatchResult struct {
+	Matched string // 匹配到的前缀
+	Remain  string // 去除前缀后的剩下文本
+	Raw     string // 原始文本
+}
+
 // 事件为MessageEvent，且消息以某个前缀开头
 func StartsWith(prefix ...string) Middleware {
 	return func(ctx *Context) bool {
@@ -420,14 +427,28 @@ func StartsWith(prefix ...string) Middleware {
 			return false
 		}
 
-		ctx.Set("prefix", map[string]interface{}{
-			"matched": find,
-			"text":    msgText[len(prefix):],
-			"raw":     msgText,
+		ctx.Set("prefix", &prefixMatchResult{
+			Matched: find,
+			Remain:  strings.TrimPrefix(msgText, find),
+			Raw:     msgText,
 		})
 
 		return true
 	}
+}
+
+// 获取StartsWith匹配结果
+func (ctx *Context) GetPrefixMatchResult() *prefixMatchResult {
+	if v, ok := ctx.Get("prefix"); ok {
+		return v.(*prefixMatchResult)
+	}
+	return nil
+}
+
+type suffixMatchResult struct {
+	Matched string // 匹配到的后缀
+	Remain  string // 去除后缀后的剩下文本
+	Raw     string // 原始文本
 }
 
 // 事件为MessageEvent，且消息以某个后缀结尾
@@ -445,14 +466,29 @@ func EndsWith(suffix ...string) Middleware {
 			return false
 		}
 
-		ctx.Set("suffix", map[string]interface{}{
-			"matched": find,
-			"text":    msgText[:len(msgText)-len(find)],
-			"raw":     msgText,
+		ctx.Set("suffix", &suffixMatchResult{
+			Matched: find,
+			Remain:  strings.TrimSuffix(msgText, find),
+			Raw:     msgText,
 		})
-
 		return true
 	}
+}
+
+// 获取EndsWith的匹配结果
+func (ctx *Context) GetSuffixMatchResult() *suffixMatchResult {
+	if v, ok := ctx.Get("suffix"); ok {
+		return v.(*suffixMatchResult)
+	}
+	return nil
+}
+
+type commandMatchResult struct {
+	CmdPrefix string   // 命令前缀
+	Command   string   // 匹配到的命令
+	Args      []string // 命令参数，以空格分割
+	Remain    string   // 去除命令后的剩下文本
+	Raw       string   // 原始文本
 }
 
 // 事件为MessageEvent，且消息开头为指令
@@ -471,17 +507,35 @@ func Command(cmd ...string) Middleware {
 			return false
 		}
 
-		ctx.Set("command", map[string]interface{}{
-			"raw_cmd": find[0],                // 前缀+命令
-			"matched": find[2],                // 命令
-			"text":    msgText[len(find[0]):], // 后面的全部文本
-			"raw":     msgText,                // 原始消息（包含命令和文本）
+		remain := strings.TrimPrefix(msgText, find[0])
+		args := strings.Split(remain, " ")
+		argsFiltered := make([]string, 0)
+		for _, arg := range args {
+			if arg != "" {
+				argsFiltered = append(argsFiltered, arg)
+			}
+		}
+		ctx.Set("command", &commandMatchResult{
+			CmdPrefix: find[1],
+			Command:   find[2],
+			Args:      argsFiltered,
+			Remain:    remain,
+			Raw:       msgText,
 		})
 
 		return true
 	}
 }
 
+// 获取Command的匹配结果
+func (ctx *Context) GetCommandMatchResult() *commandMatchResult {
+	if v, ok := ctx.Get("command"); ok {
+		return v.(*commandMatchResult)
+	}
+	return nil
+}
+
+// 完全匹配
 func FullMatch(text ...string) Middleware {
 	return func(ctx *Context) bool {
 		e := ctx.Event
@@ -517,31 +571,40 @@ func Keyword(keywords ...string) Middleware {
 			return false
 		}
 
-		ctx.Set("keyword", map[string]interface{}{
-			"matched": find,
-		})
+		ctx.Set("keyword", find)
 
 		return true
 	}
 }
 
-type RegexpMatchResult struct {
+// 获取Keyword的匹配结果
+func (ctx *Context) GetKeywordMatchResult() string {
+	if v, ok := ctx.Get("keyword"); ok {
+		return v.(string)
+	}
+	return ""
+}
+
+type regexpMatchResult struct {
 	matchGroup []string
 	groupNames []string
 }
 
-func (r RegexpMatchResult) Len() int {
+// 捕获组数量
+func (r regexpMatchResult) Len() int {
 	return len(r.matchGroup)
 }
 
-func (r RegexpMatchResult) Get(idx int) string {
+// 获取第i个捕获组，从1开始。0为整个匹配结果
+func (r regexpMatchResult) Get(idx int) string {
 	if idx >= len(r.matchGroup) {
 		return ""
 	}
 	return r.matchGroup[idx]
 }
 
-func (r RegexpMatchResult) GetByName(name string) string {
+// 使用捕获组名称来获取捕获组，仅当正则表达式中使用了命名捕获组时有效
+func (r regexpMatchResult) GetByName(name string) string {
 	for i, n := range r.groupNames {
 		if n == name {
 			return r.matchGroup[i]
@@ -564,13 +627,20 @@ func Regex(regex regexp.Regexp) Middleware {
 			return false
 		}
 
-		ctx.Set("regex", RegexpMatchResult{
+		ctx.Set("regex", &regexpMatchResult{
 			matchGroup: find,
 			groupNames: regex.SubexpNames(),
 		})
 
 		return true
 	}
+}
+
+func (ctx *Context) GetRegexMatchResult() *regexpMatchResult {
+	if v, ok := ctx.Get("regex"); ok {
+		return v.(*regexpMatchResult)
+	}
+	return nil
 }
 
 // ShellLikeCommand解析错误时要采取的动作
@@ -585,7 +655,7 @@ const (
 	ParseFailedAction_LetMeHandle
 )
 
-type ParseResult struct {
+type parseResult struct {
 	Parser  *goarg.Parser
 	RawArgs []string    // 从字符串切割出来的原始参数
 	Args    interface{} // 解析后的参数结构体指针
@@ -593,33 +663,33 @@ type ParseResult struct {
 }
 
 // 用法
-func (res *ParseResult) GetUsage() string {
+func (res *parseResult) GetUsage() string {
 	usage := bytes.NewBuffer(nil)
 	res.Parser.WriteUsage(usage)
 	return usage.String()
 }
 
 // 帮助，包含用法、参数说明、子命令说明
-func (res *ParseResult) GetHelp() string {
+func (res *parseResult) GetHelp() string {
 	help := bytes.NewBuffer(nil)
 	res.Parser.WriteHelp(help)
 	return help.String()
 }
 
 // 定义了子命令的情况下，返回是否解析到了子命令。未定义子命令时，总是返回true
-func (res *ParseResult) HasSubcommand() bool {
+func (res *parseResult) HasSubcommand() bool {
 	return res.Parser.Subcommand() != nil
 }
 
 // 获取子命令结构体指针。
 // 如果定义了子命令，但没有解析到子命令，返回nil。
 // 如果没有定义子命令，返回最顶层的结构体指针。
-func (res *ParseResult) GetSubcommand() interface{} {
+func (res *parseResult) GetSubcommand() interface{} {
 	return res.Parser.Subcommand()
 }
 
 // 生成错误提示
-func (res *ParseResult) FormatErrorAndHelp(err error) string {
+func (res *parseResult) FormatErrorAndHelp(err error) string {
 	return fmt.Sprintf("%s\n%s", err.Error(), res.GetHelp())
 }
 
@@ -654,6 +724,7 @@ func ShellLikeCommand(cmd string, args interface{}, whenFailed ParseFailedAction
 		parser, err := goarg.NewParser(goarg.Config{Program: cmd, IgnoreEnv: true}, pArgsCopy)
 		if err == nil {
 			err = parser.Parse(argSliceFiltered)
+			// 直接处理help参数并返回，不需要用户自己处理
 			if err == goarg.ErrHelp {
 				usage := bytes.NewBuffer(nil)
 				parser.WriteHelp(usage)
@@ -663,7 +734,7 @@ func ShellLikeCommand(cmd string, args interface{}, whenFailed ParseFailedAction
 			}
 		}
 
-		result := &ParseResult{
+		result := &parseResult{
 			Parser:  parser,
 			RawArgs: argSliceFiltered,
 			Args:    pArgsCopy,
@@ -674,9 +745,7 @@ func ShellLikeCommand(cmd string, args interface{}, whenFailed ParseFailedAction
 		if err != nil {
 			switch whenFailed {
 			case ParseFailedAction_AutoReply:
-				usage := bytes.NewBuffer(nil)
-				parser.WriteUsage(usage)
-				ctx.Reply(fmt.Sprintf("参数解析失败：%v\n%s", err, usage.String()))
+				ctx.Reply(fmt.Sprintf("参数解析失败：%v\n%s", err, result.GetUsage()))
 				ctx.Abort()
 				return true
 
@@ -692,10 +761,10 @@ func ShellLikeCommand(cmd string, args interface{}, whenFailed ParseFailedAction
 }
 
 // 获取ShellLikeCommand的解析结果
-func (ctx *Context) GetShellLikeCommandResult() *ParseResult {
+func (ctx *Context) GetShellLikeCommandResult() *parseResult {
 	r, ok := ctx.Get("sh_cmd")
 	if !ok {
 		return nil
 	}
-	return r.(*ParseResult)
+	return r.(*parseResult)
 }
