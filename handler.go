@@ -111,9 +111,10 @@ type process struct {
 	middlewares []Middleware // 当前Handler的中间件
 	mwIdx       int          // 当前正在执行的中间件的索引
 
-	aborted bool // 是否已经被中断
-	next    bool // 是否继续下一个Handler
-	done    bool // 当前Handler是否已经执行完毕
+	aborted      bool // 是否已经被中断
+	next         bool // 是否继续下一个Handler
+	done         bool // 当前Handler是否已经执行完毕
+	shouldExpand bool // 是否需要展开子Handler
 
 	processedByHandler bool // 是否有Handler处理过当前事件
 
@@ -130,8 +131,8 @@ func (proc *process) nextHandler() bool {
 		return false
 	}
 
-	// 当前Handler为非叶子节点，进行展开
-	if !proc.isLeaf {
+	// 当前Handler为非叶子节点，并且中间件未返回false，进行展开
+	if !proc.isLeaf && proc.shouldExpand {
 		// 按照先序的顺序，子Handler应塞在队头
 		proc.handlerQueue = append(proc.curHandler.getMatchedHandler(proc.eventName), proc.handlerQueue...)
 	}
@@ -147,6 +148,7 @@ func (proc *process) nextHandler() bool {
 	proc.isLeaf = len(proc.curHandler.subHandlers) == 0
 	proc.mwIdx = 0
 	proc.done = false
+	proc.shouldExpand = true
 	return true
 }
 
@@ -173,8 +175,9 @@ handlerLoop:
 		for !proc.aborted && proc.mwIdx < len(proc.middlewares) {
 			mw := proc.middlewares[proc.mwIdx]
 			if !mw(proc.ctx) {
-				proc.done = true     // 中间件返回false，标志当前Handler执行完毕
-				continue handlerLoop // 执行下一个Handler
+				proc.shouldExpand = false // 中间件返回false，非叶子节点不展开子Handler
+				proc.done = true          // 中间件返回false，标志当前Handler执行完毕
+				continue handlerLoop      // 执行下一个Handler
 			}
 			proc.mwIdx++
 		}
@@ -249,6 +252,7 @@ func (h *Handler) handleEvent(ctx *Context) {
 		ctx:          ctx,
 		eventName:    ctx.Event.GetEventName(),
 		done:         false,
+		shouldExpand: true,
 	}
 
 	ctx.abort = proc.abort
