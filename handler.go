@@ -1,10 +1,13 @@
 package gonebot
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
 	"sync"
+
+	goarg "github.com/alexflint/go-arg"
 )
 
 type Middleware func(*Context) bool
@@ -506,4 +509,131 @@ func Regex(regex regexp.Regexp) Middleware {
 
 		return true
 	}
+}
+
+// ShellLikeCommand解析错误时要采取的动作
+type ParseFailedAction int
+
+const (
+	// 无法解析时，自动回复错误信息
+	ParseFailedAction_AutoReply ParseFailedAction = iota
+	// 无法解析时，跳过这个Handler
+	ParseFailedAction_Skip
+	// 无法解析时，允许进入这个Handler，交由用户处理
+	ParseFailedAction_LetMeHandle
+)
+
+type ParseResult struct {
+	Parser  *goarg.Parser
+	RawArgs []string    // 从字符串切割出来的原始参数
+	Args    interface{} // 解析后的参数结构体指针
+	Err     error       // 解析失败时的错误信息
+}
+
+// 用法
+func (res *ParseResult) GetUsage() string {
+	usage := bytes.NewBuffer(nil)
+	res.Parser.WriteUsage(usage)
+	return usage.String()
+}
+
+// 帮助，包含用法、参数说明、子命令说明
+func (res *ParseResult) GetHelp() string {
+	help := bytes.NewBuffer(nil)
+	res.Parser.WriteHelp(help)
+	return help.String()
+}
+
+// 定义了子命令的情况下，返回是否解析到了子命令。未定义子命令时，总是返回true
+func (res *ParseResult) HasSubcommand() bool {
+	return res.Parser.Subcommand() != nil
+}
+
+// 获取子命令结构体指针。
+// 如果定义了子命令，但没有解析到子命令，返回nil。
+// 如果没有定义子命令，返回最顶层的结构体指针。
+func (res *ParseResult) GetSubcommand() interface{} {
+	return res.Parser.Subcommand()
+}
+
+// 生成错误提示
+func (res *ParseResult) FormatErrorAndHelp(err error) string {
+	return fmt.Sprintf("%s\n%s", err.Error(), res.GetHelp())
+}
+
+// 命令行命令。
+//
+// cmd为命令名，会受命令前缀影响，例如：命令前缀为"!"，命令为"test"，则为"!test"。
+//
+// args为命令参数，传入结构体，**注意，不会向该结构体写入数据**。
+// 用法见https://github.com/alexflint/go-arg。
+//
+// whenFailed为解析失败时的处理方式，推荐使用ParseFailedAction_AutoReply
+func ShellLikeCommand(cmd string, args interface{}, whenFailed ParseFailedAction) Middleware {
+	onCmd := Command(cmd)
+
+	return func(ctx *Context) bool {
+		if !onCmd(ctx) {
+			return false
+		}
+
+		remain := ctx.GetMap("command")["text"].(string)
+		remain = strings.TrimSpace(remain)
+		argSlice := strings.Split(remain, " ")
+		argSliceFiltered := make([]string, 0, len(argSlice))
+		for _, arg := range argSlice {
+			if arg != "" {
+				argSliceFiltered = append(argSliceFiltered, arg)
+			}
+		}
+
+		// 防止并发修改，创建一个新的结构体来存储解析结果
+		pArgsCopy := createUnderlyingStruct(args) // 指针
+		parser, err := goarg.NewParser(goarg.Config{Program: cmd, IgnoreEnv: true}, pArgsCopy)
+		if err == nil {
+			err = parser.Parse(argSliceFiltered)
+			if err == goarg.ErrHelp {
+				usage := bytes.NewBuffer(nil)
+				parser.WriteHelp(usage)
+				ctx.Reply(usage.String())
+				ctx.Abort()
+				return true
+			}
+		}
+
+		result := &ParseResult{
+			Parser:  parser,
+			RawArgs: argSliceFiltered,
+			Args:    pArgsCopy,
+			Err:     err,
+		}
+		ctx.Set("sh_cmd", result)
+
+		if err != nil {
+			switch whenFailed {
+			case ParseFailedAction_AutoReply:
+				usage := bytes.NewBuffer(nil)
+				parser.WriteUsage(usage)
+				ctx.Reply(fmt.Sprintf("参数解析失败：%v\n%s", err, usage.String()))
+				ctx.Abort()
+				return true
+
+			case ParseFailedAction_Skip:
+				return false
+
+			case ParseFailedAction_LetMeHandle:
+				return true
+			}
+		}
+		return true
+	}
+}
+
+// 获取ShellLikeCommand的解析结果
+func (ctx *Context) GetShellLikeCommandResult() *ParseResult {
+	r, ok := ctx.Get("sh_cmd")
+	if !ok {
+		return nil
+	}
+	return r.(*ParseResult)
 }
