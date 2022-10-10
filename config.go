@@ -22,6 +22,7 @@ type PluginConfigMap map[string]interface{} // 插件配置
 type BaseConfig struct {
 	Websocket WebsocketConfig `yaml:"websocket"`
 	CmdPrefix []string        `yaml:"cmd_prefix"` // 命令前缀
+	Superuser []int64         `yaml:"superuser"`  // 超级用户
 	Plugin    struct {
 		Enable map[string]bool            `yaml:"enable"`
 		Config map[string]PluginConfigMap `yaml:"config"`

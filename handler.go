@@ -343,6 +343,68 @@ func FromSession(sessionId string) Middleware {
 	}
 }
 
+// 仅群组管理员
+func FromAdmin() Middleware {
+	return func(ctx *Context) bool {
+		if ev, ok := ctx.Event.(*GroupMessageEvent); ok {
+			return ev.Sender.Role == "admin"
+		}
+		return false
+	}
+}
+
+// 群组管理员及更高权限，包括群主、超管
+func FromAdminOrHigher() Middleware {
+	admin := FromAdmin()
+	owner := FromOwner()
+	su := FromSuperuser()
+	return func(ctx *Context) bool {
+		return admin(ctx) || owner(ctx) || su(ctx)
+	}
+}
+
+// 仅群组群主
+func FromOwner() Middleware {
+	return func(ctx *Context) bool {
+		if ev, ok := ctx.Event.(*GroupMessageEvent); ok {
+			return ev.Sender.Role == "owner"
+		}
+		return false
+	}
+}
+
+// 群组群主及更高权限，包括超管
+func FromOwnerOrHigher() Middleware {
+	owner := FromOwner()
+	su := FromSuperuser()
+	return func(ctx *Context) bool {
+		return owner(ctx) || su(ctx)
+	}
+}
+
+// 仅超管，群聊和私聊都可
+func FromSuperuser() Middleware {
+	return func(ctx *Context) bool {
+		config := ctx.Engine.Config
+		sus := config.Superuser
+
+		var senderId int64
+		if ev, ok := ctx.Event.(*GroupMessageEvent); ok {
+			senderId = ev.Sender.UserId
+		} else if ev, ok := ctx.Event.(*PrivateMessageEvent); ok {
+			senderId = ev.Sender.UserId
+		} else {
+			return false
+		}
+
+		for _, su := range sus {
+			if su == senderId {
+				return true
+			}
+		}
+		return false
+	}
+}
 // 事件为MessageEvent，且消息以某个前缀开头
 func StartsWith(prefix ...string) Middleware {
 	return func(ctx *Context) bool {
