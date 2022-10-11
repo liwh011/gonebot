@@ -90,7 +90,7 @@ func mapToStruct(m map[string]interface{}, s interface{}) {
 		if !f.CanSet() {
 			continue
 		}
-		
+
 		fName := sType.Field(i).Name
 		names := []string{
 			strings.Split(sType.Field(i).Tag.Get("json"), ",")[0], // json tag
@@ -168,4 +168,19 @@ func typeConvert(v interface{}, f reflect.Value) {
 		f.Set(reflect.ValueOf(v))
 	}
 
+}
+
+// 创建相同结构的新对象，返回指针
+func createUnderlyingStruct(args interface{}) interface{} {
+	v := reflect.ValueOf(args)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		panic("args must be a struct")
+	}
+
+	// 先转成interface{}才能用Addr()
+	newValue := reflect.New(v.Type()).Interface()
+	return reflect.ValueOf(newValue).Elem().Addr().Interface()
 }

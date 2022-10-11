@@ -10,7 +10,7 @@ import (
 func init() {
 	defaultPluginManager = newPluginManager()
 	// 添加钩子，Engine创建完毕后，初始化插件
-	EngineHookManager.OnCreated(defaultPluginManager.InitPlugins)
+	EngineHookManager.EngineCreated(defaultPluginManager.InitPlugins)
 }
 
 // TODO 运行时装卸
@@ -59,8 +59,24 @@ func (pm *pluginManager) InitPlugins(engine *Engine) {
 			convertConfigMapToStruct(plgCfgStruct, engine.Config.Plugin.Config[id])
 		}
 
-		proxy := newEngineProxy(engine)
-		plugin.Init(&proxy)
+		log.Debugf("正在初始化插件：%s", id)
+		hub := newPluginHub(engine)
+		hub.plugin = plugin
+
+		log.Debugf("正在为插件%s运行PluginWillLoad钩子", id)
+		EngineHookManager.runHook(LifecycleHookType_PluginWillLoad, func(phf pHookFunc) {
+			f := *phf.(*PluginHookCallback)
+			f(&hub)
+		})
+
+		plugin.Init(&hub)
+
+		log.Debugf("正在为插件%s运行PluginLoaded钩子", id)
+		EngineHookManager.runHook(LifecycleHookType_PluginLoaded, func(phf pHookFunc) {
+			f := *phf.(*PluginHookCallback)
+			f(&hub)
+		})
+
 		log.Infof("插件%s加载完毕", id)
 	}
 }
@@ -105,7 +121,7 @@ type PluginInfo struct {
 }
 
 type Plugin interface {
-	Init(engine *EngineProxy) // 初始化插件
+	Init(hub *PluginHub) // 初始化插件
 	GetPluginInfo() PluginInfo
 }
 
@@ -115,25 +131,46 @@ func getPluginId(plugin Plugin) string {
 	return fmt.Sprintf("%s@%s", info.Name, info.Author)
 }
 
-// Engine对象的代理，仅提供有限的访问。
-type EngineProxy struct {
-	engine        *Engine
-	pluginHandler *Handler
+// 插件的所有Handler都挂载在这上面
+type PluginHub struct {
+	engine  *Engine
+	handler *Handler
+	plugin  Plugin
 }
 
-func newEngineProxy(engine *Engine) EngineProxy {
-	ret := EngineProxy{engine: engine}
-	ret.pluginHandler, _ = engine.NewRemovableHandler()
+func newPluginHub(engine *Engine) PluginHub {
+	ret := PluginHub{engine: engine}
+	ret.handler, _ = engine.NewRemovableHandler()
 	return ret
 }
 
 // 新建一个Handler，用于处理指定类型的事件，不写则处理所有类型的事件
-func (p *EngineProxy) NewHandler(eventTypes ...EventName) *Handler {
-	return p.pluginHandler.NewHandler(eventTypes...)
+func (p *PluginHub) NewHandler(eventTypes ...EventName) *Handler {
+	return p.handler.NewHandler(eventTypes...)
 }
 
-func (p *EngineProxy) GetEngineConfig() *BaseConfig {
+func (p *PluginHub) Use(middlewares ...Middleware) {
+	p.handler.Use(middlewares...)
+}
+
+func (p *PluginHub) GetEngineConfig() *BaseConfig {
 	return p.engine.Config
+}
+
+func (p *PluginHub) GetPluginConfig(plugin Plugin) interface{} {
+	return GetPluginConfig(plugin)
+}
+
+func (p *PluginHub) GetPluginId() string {
+	return getPluginId(p.plugin)
+}
+
+// func (p *EngineProxy) GetEngine() *Engine {
+// 	return p.engine
+// }
+
+func (p *PluginHub) GetBot() *Bot {
+	return p.engine.bot
 }
 
 func convertConfigMapToStruct(cfgStruct interface{}, srcMap PluginConfigMap) {

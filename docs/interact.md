@@ -52,6 +52,11 @@ h.Handle(func(ctx *gonebot.Context) {
 - `FromPrivate` : 事件来源于私聊或特定用户的私聊（可多个）
 - `FromUser` : 事件来源于特定用户（可多个）
 - `FromSession` : 事件来源于特定会话（一个私聊为一个会话；群聊中一个用户为一个会话）
+- `FromAdmin` : 事件来源于群聊管理员（仅管理员，不包括群主等高权限存在）
+- `FromAdminAndHigher` : 事件来源于群聊管理员及以上
+- `FromOwner` : 事件来源于群主（同理仅群主）
+- `FromOwnerAndHigher` : 事件来源于群主及以上
+- `FromSuperuser` : 事件来源于超管（最高权限的存在）
 - `StartsWith` : 事件为消息事件，且消息以某个前缀开头
 - `EndsWith` : 事件为消息事件，且消息以某个后缀结尾
 - `Command` : 事件为消息事件，且消息以指令前缀+指令名称开头

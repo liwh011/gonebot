@@ -5,19 +5,39 @@
 你的配置文件应至少包含以下内容：
 ```yml
 websocket:
-  # Ws服务器主机地址
   host: 127.0.0.1
-  # Ws服务器端口
   port: 6700
-  # 与Ws服务器配置的Acess token一致
   access_token: dabsfckadakjdbkafbafa
-  # 调用API超时时间（秒）
   apicall_timeout: 30
 ```
+- `websocket` 本框架采用正向WebSocket的方式连接到协议端，这里配置Ws服务端（协议提供端）的信息
+  - `host` Ws服务器主机地址
+  - `port` Ws服务器端口
+  - `access_token` 与Ws服务器配置的Access token一致
+  - `apicall_timeout` 调用协议端API超时时间（秒）
+
+
 随后调用`gonebot.LoadConfig(路径)`来载入配置。
 ```go
 cfg := gonebot.LoadConfig("config.yml")
 ```
+
+## 可选的配置项
+```yml
+cmd_prefix: 
+  - "."
+  - "/"
+
+superuser:
+  - 114514
+  - 1919810
+
+plugin:
+# 略
+```
+- `cmd_prefix` 当使用`gonebot.Command("cmd")`或`gonebot.ShellLikeCommand("cmd", ..., ...)`时，若你指定了`cmd_prefix`，则在发送消息时，需要在命令前加上其中任意一个前缀才可以触发，如`/cmd xxxxx`。
+- `superuser` 至高无上的超级管理员的QQ号，通常指定为Bot的拥有者。可以结合`gonebot.FromSuperuser`来实现特权功能。
+- `plugin` 见[插件配置](./plug_config.md)
 
 ## 自定义配置文件
 有时候随着功能的增长，你需要新增配置项，那么你需要用新的方式来载入配置。

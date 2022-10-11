@@ -9,13 +9,13 @@ import (
 )
 
 type action struct {
-	next  func()
+	next  func() bool
 	abort func()
 }
 
-// 继续后续执行（后续执行完毕后才返回）
-func (a *action) Next() {
-	a.next()
+// 继续后续执行（后续执行完毕后才返回），返回值代表是否事件被Handler处理过
+func (a *action) Next() bool {
+	return a.next()
 }
 
 func (a *action) Abort() {
@@ -23,22 +23,27 @@ func (a *action) Abort() {
 }
 
 type Context struct {
-	Event   I_Event                // 事件（实际上是个指针）
-	Keys    map[string]interface{} // 存放一些提取出来的数据
-	Bot     *Bot                   // Bot实例
-	Handler *Handler
-	mu      sync.RWMutex
+	Event             I_Event                // 事件（实际上是个指针）
+	Keys              map[string]interface{} // 存放一些提取出来的数据
+	Bot               *Bot                   // Bot实例
+	Engine            *Engine                // Engine实例
+	Handler           *Handler
+	atSenderWhenReply bool
+	mu                sync.RWMutex
 	action
 }
 
-func newContext(event I_Event, bot *Bot) *Context {
+func newContext(event I_Event, engine *Engine) *Context {
 	return &Context{
-		Event: event,
-		Keys:  make(map[string]interface{}),
-		Bot:   bot,
+		Event:  event,
+		Keys:   make(map[string]interface{}),
+		Bot:    engine.bot,
+		Engine: engine,
+
+		atSenderWhenReply: true,
 
 		action: action{
-			next:  func() {},
+			next:  func() bool { return false },
 			abort: func() {},
 		},
 	}
@@ -49,6 +54,11 @@ func newContext(event I_Event, bot *Bot) *Context {
 // 快速操作
 //
 // ===================
+
+func (ctx *Context) AtSender(b bool) *Context {
+	ctx.atSenderWhenReply = b
+	return ctx
+}
 
 // 回复
 func (ctx *Context) Reply(args ...interface{}) (err error) {
@@ -64,19 +74,7 @@ func (ctx *Context) Replyf(tmpl string, args ...interface{}) (err error) {
 
 // 使用Message对象回复
 func (ctx *Context) ReplyMsg(msg Message) (err error) {
-	if !ctx.Event.IsMessageEvent() {
-		log.Warnf("该事件不是消息事件，无法回复消息。(类型%s)", ctx.Event.GetEventName())
-		return
-	}
-	data := quickOperationParams{
-		"reply":       msg,
-		"auto_escape": false,
-	}
-	err = ctx.Bot.handleQuickOperation(ctx.Event, data)
-	if err != nil {
-		log.Errorf("回复消息失败: %s", err.Error())
-	}
-	return
+	return ctx.replyBasic(msg, nil)
 }
 
 // 文字回复
@@ -86,6 +84,12 @@ func (ctx *Context) ReplyText(text string) (err error) {
 
 // 回复，并对消息存在的CQ码进行转义
 func (ctx *Context) ReplyRaw(msg Message) (err error) {
+	return ctx.replyBasic(msg, quickOperationParams{
+		"auto_escape": true,
+	})
+}
+
+func (ctx *Context) replyBasic(msg Message, params quickOperationParams) (err error) {
 	if !ctx.Event.IsMessageEvent() {
 		log.Warnf("该事件不是消息事件，无法回复消息。(类型%s)", ctx.Event.GetEventName())
 		return
@@ -93,8 +97,13 @@ func (ctx *Context) ReplyRaw(msg Message) (err error) {
 
 	data := quickOperationParams{
 		"reply":       msg,
-		"auto_escape": true,
+		"auto_escape": false,
+		"at_sender":   ctx.atSenderWhenReply,
 	}
+	for k, v := range params {
+		data[k] = v
+	}
+
 	err = ctx.Bot.handleQuickOperation(ctx.Event, data)
 	if err != nil {
 		log.Errorf("回复消息失败: %s", err.Error())
@@ -304,7 +313,7 @@ func (ctx *Context) GetMap(key string) (m map[string]interface{}) {
 func (ctx *Context) GetSlice(key string) (s []interface{}) {
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
-	
+
 	v, exist := ctx.Keys[key]
 	if !exist {
 		return

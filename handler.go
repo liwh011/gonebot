@@ -1,10 +1,13 @@
 package gonebot
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
 	"sync"
+
+	goarg "github.com/alexflint/go-arg"
 )
 
 type Middleware func(*Context) bool
@@ -70,7 +73,7 @@ func (h *Handler) NewRemovableHandler(eventTypes ...EventName) (handler *Handler
 		subHandlers: make(map[EventName][]*Handler),
 	}
 	if len(eventTypes) == 0 {
-		eventTypes = append(eventTypes, EventNameAllEvent)
+		eventTypes = append(eventTypes, EventName_AllEvent)
 	}
 	h.addSubHandler(handler, eventTypes...)
 	return handler, func() {
@@ -93,7 +96,7 @@ func (h *Handler) getMatchedHandler(eventName EventName) (handlers []*Handler) {
 	parts := strings.Split(string(eventName), ".")
 	for i := len(parts); i >= 0; i-- {
 		if i == 0 {
-			handlers = append(handlers, h.subHandlers[EventNameAllEvent]...)
+			handlers = append(handlers, h.subHandlers[EventName_AllEvent]...)
 			break
 		}
 		shs := h.subHandlers[EventName(strings.Join(parts[:i], "."))]
@@ -111,9 +114,12 @@ type process struct {
 	middlewares []Middleware // 当前Handler的中间件
 	mwIdx       int          // 当前正在执行的中间件的索引
 
-	aborted bool // 是否已经被中断
-	next    bool // 是否继续下一个Handler
-	done    bool // 当前Handler是否已经执行完毕
+	aborted      bool // 是否已经被中断
+	next         bool // 是否继续下一个Handler
+	done         bool // 当前Handler是否已经执行完毕
+	shouldExpand bool // 是否需要展开子Handler
+
+	processedByHandler bool // 是否有Handler处理过当前事件
 
 	ctx       *Context  // 上下文
 	eventName EventName // 事件名称
@@ -128,8 +134,8 @@ func (proc *process) nextHandler() bool {
 		return false
 	}
 
-	// 当前Handler为非叶子节点，进行展开
-	if !proc.isLeaf {
+	// 当前Handler为非叶子节点，并且中间件未返回false，进行展开
+	if !proc.isLeaf && proc.shouldExpand {
 		// 按照先序的顺序，子Handler应塞在队头
 		proc.handlerQueue = append(proc.curHandler.getMatchedHandler(proc.eventName), proc.handlerQueue...)
 	}
@@ -145,6 +151,7 @@ func (proc *process) nextHandler() bool {
 	proc.isLeaf = len(proc.curHandler.subHandlers) == 0
 	proc.mwIdx = 0
 	proc.done = false
+	proc.shouldExpand = true
 	return true
 }
 
@@ -155,15 +162,25 @@ func (proc *process) abort() {
 
 // 运行过程
 func (proc *process) run() {
+	startHandler := proc.curHandler // 记录开始的Handler
+	prevHandler := proc.curHandler  // 上一个Handler，用于比较Handler是否发生变化
+
 	// 当前Handler尚未完成则继续，否则下一个
 handlerLoop:
 	for !proc.done || proc.nextHandler() {
+		if prevHandler != proc.curHandler {
+			// 当前Handler发生了变化，需要更新CTX的Handler
+			proc.ctx.Handler = proc.curHandler
+			prevHandler = proc.curHandler
+		}
+
 		// 顺序执行中间件
 		for !proc.aborted && proc.mwIdx < len(proc.middlewares) {
 			mw := proc.middlewares[proc.mwIdx]
 			if !mw(proc.ctx) {
-				proc.done = true     // 中间件返回false，标志当前Handler执行完毕
-				continue handlerLoop // 执行下一个Handler
+				proc.shouldExpand = false // 中间件返回false，非叶子节点不展开子Handler
+				proc.done = true          // 中间件返回false，标志当前Handler执行完毕
+				continue handlerLoop      // 执行下一个Handler
 			}
 			proc.mwIdx++
 		}
@@ -178,21 +195,25 @@ handlerLoop:
 			continue
 		}
 
-		proc.next = false // 叶子节点，默认不向后执行
 		if proc.curHandler.handleFunc != nil {
+			proc.next = false // 叶子节点，默认不向后执行
 			// 提前设置done，让下次循环能正确获取下一个Handler。
 			// 否则会造成无限递归
 			proc.done = true
 			proc.curHandler.handleFunc(proc.ctx)
+			proc.processedByHandler = true
 		}
 		proc.done = true
 	}
+
+	// 复原CTX的Handler
+	proc.ctx.Handler = startHandler
 }
 
 // 从当前process创建一个新的process，用于执行当前process的后续
-func (proc *process) forkAndNext() {
+func (proc *process) forkAndNext() bool {
 	if proc.aborted {
-		return
+		return false
 	}
 
 	// 为了防止并发调用next，导致两个goroutine同时向后执行，
@@ -218,10 +239,12 @@ func (proc *process) forkAndNext() {
 	}()
 
 	newProc.run()
+	proc.processedByHandler = newProc.processedByHandler
+	return newProc.processedByHandler
 }
 
 func (h *Handler) handleEvent(ctx *Context) {
-	exe := process{
+	proc := process{
 		handlerQueue: []*Handler{},
 		curHandler:   h,
 		isLeaf:       len(h.subHandlers) == 0,
@@ -232,12 +255,13 @@ func (h *Handler) handleEvent(ctx *Context) {
 		ctx:          ctx,
 		eventName:    ctx.Event.GetEventName(),
 		done:         false,
+		shouldExpand: true,
 	}
 
-	ctx.abort = exe.abort
-	ctx.next = exe.forkAndNext
+	ctx.abort = proc.abort
+	ctx.next = proc.forkAndNext
 
-	exe.run()
+	proc.run()
 }
 
 func OnEvent(eventName EventName) Middleware {
@@ -319,6 +343,75 @@ func FromSession(sessionId string) Middleware {
 	}
 }
 
+// 仅群组管理员
+func FromAdmin() Middleware {
+	return func(ctx *Context) bool {
+		if ev, ok := ctx.Event.(*GroupMessageEvent); ok {
+			return ev.Sender.Role == "admin"
+		}
+		return false
+	}
+}
+
+// 群组管理员及更高权限，包括群主、超管
+func FromAdminOrHigher() Middleware {
+	admin := FromAdmin()
+	owner := FromOwner()
+	su := FromSuperuser()
+	return func(ctx *Context) bool {
+		return admin(ctx) || owner(ctx) || su(ctx)
+	}
+}
+
+// 仅群组群主
+func FromOwner() Middleware {
+	return func(ctx *Context) bool {
+		if ev, ok := ctx.Event.(*GroupMessageEvent); ok {
+			return ev.Sender.Role == "owner"
+		}
+		return false
+	}
+}
+
+// 群组群主及更高权限，包括超管
+func FromOwnerOrHigher() Middleware {
+	owner := FromOwner()
+	su := FromSuperuser()
+	return func(ctx *Context) bool {
+		return owner(ctx) || su(ctx)
+	}
+}
+
+// 仅超管，群聊和私聊都可
+func FromSuperuser() Middleware {
+	return func(ctx *Context) bool {
+		config := ctx.Engine.Config
+		sus := config.Superuser
+
+		var senderId int64
+		if ev, ok := ctx.Event.(*GroupMessageEvent); ok {
+			senderId = ev.Sender.UserId
+		} else if ev, ok := ctx.Event.(*PrivateMessageEvent); ok {
+			senderId = ev.Sender.UserId
+		} else {
+			return false
+		}
+
+		for _, su := range sus {
+			if su == senderId {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+type prefixMatchResult struct {
+	Matched string // 匹配到的前缀
+	Remain  string // 去除前缀后的剩下文本
+	Raw     string // 原始文本
+}
+
 // 事件为MessageEvent，且消息以某个前缀开头
 func StartsWith(prefix ...string) Middleware {
 	return func(ctx *Context) bool {
@@ -334,14 +427,28 @@ func StartsWith(prefix ...string) Middleware {
 			return false
 		}
 
-		ctx.Set("prefix", map[string]interface{}{
-			"matched": find,
-			"text":    msgText[len(prefix):],
-			"raw":     msgText,
+		ctx.Set("prefix", &prefixMatchResult{
+			Matched: find,
+			Remain:  strings.TrimPrefix(msgText, find),
+			Raw:     msgText,
 		})
 
 		return true
 	}
+}
+
+// 获取StartsWith匹配结果
+func (ctx *Context) GetPrefixMatchResult() *prefixMatchResult {
+	if v, ok := ctx.Get("prefix"); ok {
+		return v.(*prefixMatchResult)
+	}
+	return nil
+}
+
+type suffixMatchResult struct {
+	Matched string // 匹配到的后缀
+	Remain  string // 去除后缀后的剩下文本
+	Raw     string // 原始文本
 }
 
 // 事件为MessageEvent，且消息以某个后缀结尾
@@ -359,42 +466,76 @@ func EndsWith(suffix ...string) Middleware {
 			return false
 		}
 
-		ctx.Set("suffix", map[string]interface{}{
-			"matched": find,
-			"text":    msgText[:len(msgText)-len(find)],
-			"raw":     msgText,
+		ctx.Set("suffix", &suffixMatchResult{
+			Matched: find,
+			Remain:  strings.TrimSuffix(msgText, find),
+			Raw:     msgText,
 		})
-
 		return true
 	}
 }
 
+// 获取EndsWith的匹配结果
+func (ctx *Context) GetSuffixMatchResult() *suffixMatchResult {
+	if v, ok := ctx.Get("suffix"); ok {
+		return v.(*suffixMatchResult)
+	}
+	return nil
+}
+
+type commandMatchResult struct {
+	CmdPrefix string   // 命令前缀
+	Command   string   // 匹配到的命令
+	Args      []string // 命令参数，以空格分割
+	Remain    string   // 去除命令后的剩下文本
+	Raw       string   // 原始文本
+}
+
 // 事件为MessageEvent，且消息开头为指令
-func Command(cmdPrefix string, cmd ...string) Middleware {
+func Command(cmd ...string) Middleware {
 	return func(ctx *Context) bool {
 		e := ctx.Event
 		if !e.IsMessageEvent() {
 			return false
 		}
 
+		cmdPrefixs := ctx.Engine.Config.CmdPrefix
 		msgText := e.ExtractPlainText()
-		reg := regexp.MustCompile(fmt.Sprintf("^%s(%s)", cmdPrefix, strings.Join(cmd, "|")))
-		find := reg.FindString(msgText)
-		if find == "" {
+		reg := regexp.MustCompile(fmt.Sprintf("^(%s)(%s)", strings.Join(cmdPrefixs, "|"), strings.Join(cmd, "|")))
+		find := reg.FindStringSubmatch(msgText)
+		if find == nil {
 			return false
 		}
 
-		ctx.Set("command", map[string]interface{}{
-			"raw_cmd": find,
-			"matched": find[len(cmdPrefix):],
-			"text":    msgText[len(find):],
-			"raw":     msgText,
+		remain := strings.TrimPrefix(msgText, find[0])
+		args := strings.Split(remain, " ")
+		argsFiltered := make([]string, 0)
+		for _, arg := range args {
+			if arg != "" {
+				argsFiltered = append(argsFiltered, arg)
+			}
+		}
+		ctx.Set("command", &commandMatchResult{
+			CmdPrefix: find[1],
+			Command:   find[2],
+			Args:      argsFiltered,
+			Remain:    remain,
+			Raw:       msgText,
 		})
 
 		return true
 	}
 }
 
+// 获取Command的匹配结果
+func (ctx *Context) GetCommandMatchResult() *commandMatchResult {
+	if v, ok := ctx.Get("command"); ok {
+		return v.(*commandMatchResult)
+	}
+	return nil
+}
+
+// 完全匹配
 func FullMatch(text ...string) Middleware {
 	return func(ctx *Context) bool {
 		e := ctx.Event
@@ -430,12 +571,46 @@ func Keyword(keywords ...string) Middleware {
 			return false
 		}
 
-		ctx.Set("keyword", map[string]interface{}{
-			"matched": find,
-		})
+		ctx.Set("keyword", find)
 
 		return true
 	}
+}
+
+// 获取Keyword的匹配结果
+func (ctx *Context) GetKeywordMatchResult() string {
+	if v, ok := ctx.Get("keyword"); ok {
+		return v.(string)
+	}
+	return ""
+}
+
+type regexpMatchResult struct {
+	matchGroup []string
+	groupNames []string
+}
+
+// 捕获组数量
+func (r regexpMatchResult) Len() int {
+	return len(r.matchGroup)
+}
+
+// 获取第i个捕获组，从1开始。0为整个匹配结果
+func (r regexpMatchResult) Get(idx int) string {
+	if idx >= len(r.matchGroup) {
+		return ""
+	}
+	return r.matchGroup[idx]
+}
+
+// 使用捕获组名称来获取捕获组，仅当正则表达式中使用了命名捕获组时有效
+func (r regexpMatchResult) GetByName(name string) string {
+	for i, n := range r.groupNames {
+		if n == name {
+			return r.matchGroup[i]
+		}
+	}
+	return ""
 }
 
 // 事件为MessageEvent，且消息中存在子串满足正则表达式
@@ -452,10 +627,144 @@ func Regex(regex regexp.Regexp) Middleware {
 			return false
 		}
 
-		ctx.Set("regex", map[string]interface{}{
-			"matched": find,
+		ctx.Set("regex", &regexpMatchResult{
+			matchGroup: find,
+			groupNames: regex.SubexpNames(),
 		})
 
 		return true
 	}
+}
+
+func (ctx *Context) GetRegexMatchResult() *regexpMatchResult {
+	if v, ok := ctx.Get("regex"); ok {
+		return v.(*regexpMatchResult)
+	}
+	return nil
+}
+
+// ShellLikeCommand解析错误时要采取的动作
+type ParseFailedAction int
+
+const (
+	// 无法解析时，自动回复错误信息
+	ParseFailedAction_AutoReply ParseFailedAction = iota
+	// 无法解析时，跳过这个Handler
+	ParseFailedAction_Skip
+	// 无法解析时，允许进入这个Handler，交由用户处理
+	ParseFailedAction_LetMeHandle
+)
+
+type parseResult struct {
+	Parser  *goarg.Parser
+	RawArgs []string    // 从字符串切割出来的原始参数
+	Args    interface{} // 解析后的参数结构体指针
+	Err     error       // 解析失败时的错误信息
+}
+
+// 用法
+func (res *parseResult) GetUsage() string {
+	usage := bytes.NewBuffer(nil)
+	res.Parser.WriteUsage(usage)
+	return usage.String()
+}
+
+// 帮助，包含用法、参数说明、子命令说明
+func (res *parseResult) GetHelp() string {
+	help := bytes.NewBuffer(nil)
+	res.Parser.WriteHelp(help)
+	return help.String()
+}
+
+// 定义了子命令的情况下，返回是否解析到了子命令。未定义子命令时，总是返回true
+func (res *parseResult) HasSubcommand() bool {
+	return res.Parser.Subcommand() != nil
+}
+
+// 获取子命令结构体指针。
+// 如果定义了子命令，但没有解析到子命令，返回nil。
+// 如果没有定义子命令，返回最顶层的结构体指针。
+func (res *parseResult) GetSubcommand() interface{} {
+	return res.Parser.Subcommand()
+}
+
+// 生成错误提示
+func (res *parseResult) FormatErrorAndHelp(err error) string {
+	return fmt.Sprintf("%s\n%s", err.Error(), res.GetHelp())
+}
+
+// 命令行命令。
+//
+// cmd为命令名，会受命令前缀影响，例如：命令前缀为"!"，命令为"test"，则为"!test"。
+//
+// args为命令参数，传入结构体，**注意，不会向该结构体写入数据**。
+// 用法见https://github.com/alexflint/go-arg。
+//
+// whenFailed为解析失败时的处理方式，推荐使用ParseFailedAction_AutoReply
+func ShellLikeCommand(cmd string, args interface{}, whenFailed ParseFailedAction) Middleware {
+	onCmd := Command(cmd)
+
+	return func(ctx *Context) bool {
+		if !onCmd(ctx) {
+			return false
+		}
+
+		remain := ctx.GetMap("command")["text"].(string)
+		remain = strings.TrimSpace(remain)
+		argSlice := strings.Split(remain, " ")
+		argSliceFiltered := make([]string, 0, len(argSlice))
+		for _, arg := range argSlice {
+			if arg != "" {
+				argSliceFiltered = append(argSliceFiltered, arg)
+			}
+		}
+
+		// 防止并发修改，创建一个新的结构体来存储解析结果
+		pArgsCopy := createUnderlyingStruct(args) // 指针
+		parser, err := goarg.NewParser(goarg.Config{Program: cmd, IgnoreEnv: true}, pArgsCopy)
+		if err == nil {
+			err = parser.Parse(argSliceFiltered)
+			// 直接处理help参数并返回，不需要用户自己处理
+			if err == goarg.ErrHelp {
+				usage := bytes.NewBuffer(nil)
+				parser.WriteHelp(usage)
+				ctx.Reply(usage.String())
+				ctx.Abort()
+				return true
+			}
+		}
+
+		result := &parseResult{
+			Parser:  parser,
+			RawArgs: argSliceFiltered,
+			Args:    pArgsCopy,
+			Err:     err,
+		}
+		ctx.Set("sh_cmd", result)
+
+		if err != nil {
+			switch whenFailed {
+			case ParseFailedAction_AutoReply:
+				ctx.Reply(fmt.Sprintf("参数解析失败：%v\n%s", err, result.GetUsage()))
+				ctx.Abort()
+				return true
+
+			case ParseFailedAction_Skip:
+				return false
+
+			case ParseFailedAction_LetMeHandle:
+				return true
+			}
+		}
+		return true
+	}
+}
+
+// 获取ShellLikeCommand的解析结果
+func (ctx *Context) GetShellLikeCommandResult() *parseResult {
+	r, ok := ctx.Get("sh_cmd")
+	if !ok {
+		return nil
+	}
+	return r.(*parseResult)
 }
