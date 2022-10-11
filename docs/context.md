@@ -68,16 +68,9 @@ func CheckZhaoCha(ctx *gonebot.Context) bool {
 ```
 该例子通过使用Context的`Set`函数，向Keys写入数据，以供后续使用。
 
-类似地，内置的先决条件中间件也会向其中写入一些数据。例如`Command`将会使用`"command"`这个键并写入一个map，你可以合理使用这些字段来避免手动处理文本。
-```go
-map[string]interface{}{
-    "raw_cmd": 包含命令前缀的命令名称,
-    "matched": 匹配到的命令名称,
-    "text":    去除命令部分的文本内容,
-    "raw":     原始文本,
-})
-```
-其他内置中间件的字段暂且还请[阅读源代码](https://github.com/liwh011/gonebot/blob/master/handler.go)~
+类似地，内置的中间件也会向其中写入一些数据。例如`Command`将会使用`"command"`这个键并写入处理后的数据，并提供了`ctx.GetCommandMatchResult`方法来便捷地获取这些数据。你可以合理使用这些字段来避免手动处理文本。
+
+其他内置中间件暂且还请[阅读源代码](https://github.com/liwh011/gonebot/blob/master/handler.go)~
 
 ### 读取
 Context提供了一系列Get方法来获取数据。
