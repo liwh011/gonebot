@@ -10,38 +10,38 @@ import (
 )
 
 const (
-	PostTypeMetaEvent    = "meta_event"
-	PostTypeMessageEvent = "message"
-	PostTypeNoticeEvent  = "notice"
-	PostTypeRequestEvent = "request"
+	PostType_MetaEvent    = "meta_event"
+	PostType_MessageEvent = "message"
+	PostType_NoticeEvent  = "notice"
+	PostType_RequestEvent = "request"
 )
 
 type EventName string
 
 const (
-	EventNameAllEvent        EventName = "all"
-	EventNameMessage         EventName = "message"
-	EventNamePrivateMessage  EventName = "message.private"
-	EventNameGroupMessage    EventName = "message.group"
-	EventNameNotice          EventName = "notice"
-	EventNameGroupUpload     EventName = "notice.group_upload"
-	EventNameGroupAdmin      EventName = "notice.group_admin"
-	EventNameGroupDecrease   EventName = "notice.group_decrease"
-	EventNameGroupIncrease   EventName = "notice.group_increase"
-	EventNameGroupBan        EventName = "notice.group_ban"
-	EventNameFriendAdd       EventName = "notice.friend_add"
-	EventNameGroupRecall     EventName = "notice.group_recall"
-	EventNameFriendRecall    EventName = "notice.friend_recall"
-	EventNameNotify          EventName = "notice.notify"
-	EventNameNotifyPoke      EventName = "notice.notify.poke"
-	EventNameNotifyLuckyKing EventName = "notice.notify.lucky_king"
-	EventNameNotifyHonor     EventName = "notice.notify.honor"
-	EventNameRequest         EventName = "request"
-	EventNameRequestFriend   EventName = "request.friend"
-	EventNameRequestGroup    EventName = "request.group"
-	EventNameMeta            EventName = "meta_event"
-	EventNameMetaLifecycle   EventName = "meta_event.lifecycle"
-	EventNameMetaHeartbeat   EventName = "meta_event.heartbeat"
+	EventName_AllEvent        EventName = "all"
+	EventName_Message         EventName = "message"
+	EventName_PrivateMessage  EventName = "message.private"
+	EventName_GroupMessage    EventName = "message.group"
+	EventName_Notice          EventName = "notice"
+	EventName_GroupUpload     EventName = "notice.group_upload"
+	EventName_GroupAdmin      EventName = "notice.group_admin"
+	EventName_GroupDecrease   EventName = "notice.group_decrease"
+	EventName_GroupIncrease   EventName = "notice.group_increase"
+	EventName_GroupBan        EventName = "notice.group_ban"
+	EventName_FriendAdd       EventName = "notice.friend_add"
+	EventName_GroupRecall     EventName = "notice.group_recall"
+	EventName_FriendRecall    EventName = "notice.friend_recall"
+	EventName_Notify          EventName = "notice.notify"
+	EventName_NotifyPoke      EventName = "notice.notify.poke"
+	EventName_NotifyLuckyKing EventName = "notice.notify.lucky_king"
+	EventName_NotifyHonor     EventName = "notice.notify.honor"
+	EventName_Request         EventName = "request"
+	EventName_RequestFriend   EventName = "request.friend"
+	EventName_RequestGroup    EventName = "request.group"
+	EventName_Meta            EventName = "meta_event"
+	EventName_MetaLifecycle   EventName = "meta_event.lifecycle"
+	EventName_MetaHeartbeat   EventName = "meta_event.heartbeat"
 )
 
 var eventTypeMap map[string]I_Event
@@ -120,7 +120,7 @@ func (e *Event) GetEventDescription() string {
 }
 
 func (e *Event) IsMessageEvent() bool {
-	return e.PostType == PostTypeMessageEvent
+	return e.PostType == PostType_MessageEvent
 }
 
 func (e *Event) IsToMe() bool {

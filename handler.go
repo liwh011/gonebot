@@ -73,7 +73,7 @@ func (h *Handler) NewRemovableHandler(eventTypes ...EventName) (handler *Handler
 		subHandlers: make(map[EventName][]*Handler),
 	}
 	if len(eventTypes) == 0 {
-		eventTypes = append(eventTypes, EventNameAllEvent)
+		eventTypes = append(eventTypes, EventName_AllEvent)
 	}
 	h.addSubHandler(handler, eventTypes...)
 	return handler, func() {
@@ -96,7 +96,7 @@ func (h *Handler) getMatchedHandler(eventName EventName) (handlers []*Handler) {
 	parts := strings.Split(string(eventName), ".")
 	for i := len(parts); i >= 0; i-- {
 		if i == 0 {
-			handlers = append(handlers, h.subHandlers[EventNameAllEvent]...)
+			handlers = append(handlers, h.subHandlers[EventName_AllEvent]...)
 			break
 		}
 		shs := h.subHandlers[EventName(strings.Join(parts[:i], "."))]

@@ -22,8 +22,8 @@ func Test_WaitForNextEvent(t *testing.T) {
 		})
 
 	msgEvent := &GroupMessageEvent{}
-	msgEvent.EventName = EventNameGroupMessage
-	msgEvent.PostType = PostTypeMessageEvent
+	msgEvent.EventName = EventName_GroupMessage
+	msgEvent.PostType = PostType_MessageEvent
 	msgEvent.GroupId = 114514
 	msgEvent.UserId = 1919810
 	msgEvent.Message = MsgPrint("哈哈哈")
@@ -55,8 +55,8 @@ func Test_WaitForNextEventTimeout(t *testing.T) {
 		})
 
 	msgEvent := &GroupMessageEvent{}
-	msgEvent.EventName = EventNameGroupMessage
-	msgEvent.PostType = PostTypeMessageEvent
+	msgEvent.EventName = EventName_GroupMessage
+	msgEvent.PostType = PostType_MessageEvent
 	msgEvent.GroupId = 114514
 	msgEvent.UserId = 1919810
 	msgEvent.Message = MsgPrint("哈哈哈")
@@ -96,8 +96,8 @@ func Test_ReturnValueOfNext(t *testing.T) {
 		})
 
 	msgEvent := &GroupMessageEvent{}
-	msgEvent.EventName = EventNameGroupMessage
-	msgEvent.PostType = PostTypeMessageEvent
+	msgEvent.EventName = EventName_GroupMessage
+	msgEvent.PostType = PostType_MessageEvent
 	msgEvent.GroupId = 114514
 	msgEvent.UserId = 1919810
 	msgEvent.Message = MsgPrint("哈哈哈")
@@ -131,8 +131,8 @@ func Test_ReturnValueOfNext2(t *testing.T) {
 		})
 
 	msgEvent := &GroupMessageEvent{}
-	msgEvent.EventName = EventNameGroupMessage
-	msgEvent.PostType = PostTypeMessageEvent
+	msgEvent.EventName = EventName_GroupMessage
+	msgEvent.PostType = PostType_MessageEvent
 	msgEvent.GroupId = 114514
 	msgEvent.UserId = 1919810
 	msgEvent.Message = MsgPrint("114514")
@@ -176,8 +176,8 @@ func Test_ReturnValueOfNext3(t *testing.T) {
 		})
 
 	msgEvent := &GroupMessageEvent{}
-	msgEvent.EventName = EventNameGroupMessage
-	msgEvent.PostType = PostTypeMessageEvent
+	msgEvent.EventName = EventName_GroupMessage
+	msgEvent.PostType = PostType_MessageEvent
 	msgEvent.GroupId = 114514
 	msgEvent.UserId = 1919810
 	msgEvent.Message = MsgPrint("哈哈哈")

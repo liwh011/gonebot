@@ -341,9 +341,9 @@ func (f messageSegmentFactory) Location(lat, lng float64, options *locationOptio
 }
 
 const (
-	MUSIC_TYPE_QQ    = "qq"  // QQ 音乐
-	MUSIC_TYPE_163   = "163" // 网易云音乐
-	MUSIC_TYPE_XIAMI = "xm"  // 虾米音乐
+	MusicType_QQ    = "qq"  // QQ 音乐
+	MusicType_163   = "163" // 网易云音乐
+	MusicType_XiaMi = "xm"  // 虾米音乐
 )
 
 // 音乐分享
