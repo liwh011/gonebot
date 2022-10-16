@@ -66,8 +66,8 @@ func (adapter *OneBotAdapter) handleMessage(data []byte) {
 			Echo:    jsonData.Get("echo").Uint(),
 		}
 		if ch, ok := adapter.seq2Chan.Load(msg.Echo); ok {
-			ch.(chan interface{}) <- msg
-			close(ch.(chan interface{}))
+			ch.(chan response) <- msg
+			close(ch.(chan response))
 		} else {
 			log.Warnf("没有找到对应的回复通道，消息序号为%d", msg.Echo)
 		}
