@@ -709,7 +709,7 @@ func ShellLikeCommand(cmd string, args interface{}, whenFailed ParseFailedAction
 			return false
 		}
 
-		remain := ctx.GetMap("command")["text"].(string)
+		remain := ctx.GetCommandMatchResult().Remain
 		remain = strings.TrimSpace(remain)
 		argSlice := strings.Split(remain, " ")
 		argSliceFiltered := make([]string, 0, len(argSlice))
