@@ -3,6 +3,7 @@ package gonebot
 import (
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
@@ -27,9 +28,22 @@ func NewEngine(cfg Config) *Engine {
 	engine.Config = cfg
 
 	providerName := cfg.GetBaseConfig().Provider
+	providerList := providers.List()
+	providerListPrompt := strings.Join(providerList, ", ")
+	if providerName == "" {
+		if len(providerList) > 0 {
+			log.Fatalf("配置文件中未设置`provider`字段，可用的Provider有：%s", providerListPrompt)
+		} else {
+			log.Fatal("配置文件中未设置`provider`字段，且未找到任何已注册的Provider，请导入并填写配置文件")
+		}
+	}
 	provider, ok := providers[providerName]
 	if !ok {
-		log.Fatalf("未找到Provider %s", providerName)
+		if len(providerList) > 0 {
+			log.Fatalf("不存在名为%s的Provider，可用的Provider有：%s", providerName, providerListPrompt)
+		} else {
+			log.Fatalf("不存在名为%s的Provider，且未找到任何已注册的Provider，请先导入", providerName)
+		}
 	}
 	engine.provider = provider
 	engine.provider.Init(cfg)
@@ -57,7 +71,7 @@ func NewEngine(cfg Config) *Engine {
 
 func (engine *Engine) Run() {
 	if engine.provider == nil {
-		log.Panic("尚未设置Provider")
+		log.Fatal("尚未设置Provider，请import任意一个Provider")
 	}
 	go engine.provider.Start()
 
@@ -106,10 +120,22 @@ func (engine *Engine) SetProvider(provider Provider) {
 	engine.provider.Init(engine.Config)
 }
 
-var providers = make(map[string]Provider)
+type providerRegistry map[string]Provider
 
+var providers = make(providerRegistry)
+
+// 注册一个Provider
 func RegisterProvider(name string, provider Provider) {
 	providers[name] = provider
+}
+
+// 列出所有已注册的provider名字
+func (reg providerRegistry) List() []string {
+	var list []string
+	for k := range reg {
+		list = append(list, k)
+	}
+	return list
 }
 
 type pHookFunc interface{}
