@@ -393,7 +393,7 @@ func (bot *Bot) GetGroupList() (*[]GroupInfo, error) {
 		return nil, err
 	}
 	var groups []GroupInfo
-	for _, v := range resp.Get("groups").Array() {
+	for _, v := range resp.Array() {
 		group := GroupInfo{
 			GroupId:        v.Get("group_id").Int(),
 			GroupName:      v.Get("group_name").String(),
