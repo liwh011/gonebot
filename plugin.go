@@ -46,7 +46,8 @@ func (pm *pluginManager) RegisterPlugin(plugin Plugin, pluginConfig interface{})
 
 // 初始化插件
 func (pm *pluginManager) InitPlugins(engine *Engine) {
-	pluginControlConfig := engine.Config.Plugin.Enable
+	cfg := engine.Config.GetBaseConfig()
+	pluginControlConfig := cfg.Plugin.Enable
 
 	for id, plugin := range pm.plugins {
 		// 仅当配置中指定为禁用的插件才不加载。配置中未指定的插件默认启用
@@ -56,7 +57,7 @@ func (pm *pluginManager) InitPlugins(engine *Engine) {
 
 		// 填充插件配置结构体字段
 		if plgCfgStruct, ok := pm.pluginConfigStructs[id]; ok {
-			convertConfigMapToStruct(plgCfgStruct, engine.Config.Plugin.Config[id])
+			convertConfigMapToStruct(plgCfgStruct, cfg.Plugin.Config[id])
 		}
 
 		log.Debugf("正在初始化插件：%s", id)
@@ -154,7 +155,7 @@ func (p *PluginHub) Use(middlewares ...Middleware) {
 }
 
 func (p *PluginHub) GetEngineConfig() *BaseConfig {
-	return p.engine.Config
+	return p.engine.Config.GetBaseConfig()
 }
 
 func (p *PluginHub) GetPluginConfig(plugin Plugin) interface{} {

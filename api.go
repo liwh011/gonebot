@@ -5,16 +5,17 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type ApiParams wsRequestParams
+type ApiParams map[string]interface{}
 
 func (bot *Bot) CallApi(action string, params ApiParams) (*gjson.Result, error) {
 	log.Infof("正在调用接口%s", action)
-	rsp, err := bot.driver.CallApi(action, wsRequestParams(params))
+	rsp, err := bot.adapter.Request(action, params)
 	if err != nil {
 		log.Errorf("调用接口%s失败: %s", action, err)
 		return nil, err
 	}
-	return &rsp.Data, nil
+	data := rsp.(response).Data
+	return &data, nil
 }
 
 // 发送私聊消息

@@ -6,7 +6,6 @@ import (
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
 )
 
 func init() {
@@ -17,17 +16,29 @@ func init() {
 
 type Engine struct {
 	Handler
-	Config *BaseConfig
-	bot    *Bot
-	ws     *WebsocketClient
+	Config   Config
+	bot      *Bot
+	provider Provider
+	adapter  *OneBotAdapter
 }
 
 func NewEngine(cfg Config) *Engine {
 	engine := &Engine{}
-	engine.Config = cfg.GetBaseConfig()
+	engine.Config = cfg
 
-	engine.ws = NewWebsocketClient(engine.Config)
-	engine.bot = NewBot(engine.ws, engine.Config)
+	providerName := cfg.GetBaseConfig().Provider
+	provider, ok := providers[providerName]
+	if !ok {
+		log.Fatalf("未找到Provider %s", providerName)
+	}
+	engine.provider = provider
+	engine.provider.Init(cfg)
+
+	engine.adapter = &OneBotAdapter{}
+	engine.adapter.Init(cfg, engine.provider)
+
+	engine.bot = &Bot{}
+	engine.bot.Init(engine.adapter)
 
 	// 初始化handler
 	engine.Handler = Handler{
@@ -45,29 +56,27 @@ func NewEngine(cfg Config) *Engine {
 }
 
 func (engine *Engine) Run() {
-	// 启动连接到WebSocket服务器
-	log.Info("开始连接到WebSocket服务器，地址：", engine.ws.url)
-	go engine.ws.Start()
-
-	// 初始化Bot
-	engine.bot.Init()
+	if engine.provider == nil {
+		log.Panic("尚未设置Provider")
+	}
+	go engine.provider.Start()
 
 	// 注册操作系统信号接收
 	osc := make(chan os.Signal, 1)
 	signal.Notify(osc, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGHUP)
 
 	// 处理消息
-	ch := engine.ws.Subscribe()
+	ch := make(chan I_Event)
+	engine.adapter.RecieveEvent(ch)
+
 MSG_LOOP:
 	for {
 		select {
-		case by := <-ch:
-			// 生成事件
-			data := gjson.ParseBytes(by)
-			ev := convertJsonObjectToEvent(data)
-
+		case ev := <-ch:
 			if ev.GetPostType() == PostType_MetaEvent {
-				// log.Debug(ev.GetEventDescription())
+				if ev, ok := ev.(*LifeCycleMetaEvent); ok {
+					engine.bot.selfId = ev.SelfId
+				}
 			} else {
 				log.Info(ev.GetEventDescription())
 			}
@@ -82,10 +91,25 @@ MSG_LOOP:
 	}
 
 	log.Info("正在执行清理工作")
+	engine.provider.Stop()
 	EngineHookManager.runHook(LifecycleHookType_EngineWillTerminate, func(phf pHookFunc) {
 		f := *phf.(*EngineHookCallback)
 		f(engine)
 	})
+}
+
+func (engine *Engine) SetProvider(provider Provider) {
+	if engine.provider != nil {
+		log.Warnf("Provider已经设置，将覆盖原有设置：原为%T，新为%T", engine.provider, provider)
+	}
+	engine.provider = provider
+	engine.provider.Init(engine.Config)
+}
+
+var providers = make(map[string]Provider)
+
+func RegisterProvider(name string, provider Provider) {
+	providers[name] = provider
 }
 
 type pHookFunc interface{}

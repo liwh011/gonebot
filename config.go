@@ -3,7 +3,9 @@ package gonebot
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v3"
 )
 
@@ -11,22 +13,40 @@ type Config interface {
 	GetBaseConfig() *BaseConfig
 }
 
-type WebsocketConfig struct {
-	Host           string `yaml:"host"`            // WebSocket服务器地址
-	Port           int    `yaml:"port"`            // WebSocket服务器端口
-	AccessToken    string `yaml:"access_token"`    // 访问令牌，应与WS服务器设定的一致
-	ApiCallTimeout int    `yaml:"apicall_timeout"` // API调用超时时间，单位：秒
-}
-
-type PluginConfigMap map[string]interface{} // 插件配置
+type PluginConfigMap map[string]interface{}   // 插件配置
+type ProviderConfigMap map[string]interface{} // 服务提供者配置
 type BaseConfig struct {
-	Websocket WebsocketConfig `yaml:"websocket"`
-	CmdPrefix []string        `yaml:"cmd_prefix"` // 命令前缀
-	Superuser []int64         `yaml:"superuser"`  // 超级用户
-	Plugin    struct {
+	// Websocket WebsocketConfig `yaml:"websocket"`
+	CmdPrefix      []string `yaml:"cmd_prefix"`      // 命令前缀
+	Superuser      []int64  `yaml:"superuser"`       // 超级用户
+	ApiCallTimeout int      `yaml:"apicall_timeout"` // API调用超时时间，单位：秒
+	Plugin         struct {
 		Enable map[string]bool            `yaml:"enable"`
 		Config map[string]PluginConfigMap `yaml:"config"`
+	} `yaml:"plugin"`
+	Provider       string                       `yaml:"provider"`
+	ProviderConfig map[string]ProviderConfigMap `yaml:"provider_config"`
+}
+
+func (mp ProviderConfigMap) DecodeTo(v interface{}) error {
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		MatchName: func(mapKey, fieldName string) bool {
+			switch {
+			case mapKey == camelCaseToSnakeCase(fieldName):
+				return true
+			case mapKey == fieldName:
+				return true
+			case mapKey == strings.ToLower(fieldName[:1])+fieldName[1:]:
+				return true
+			}
+			return false
+		},
+		Result: v,
+	})
+	if err != nil {
+		return err
 	}
+	return decoder.Decode(mp)
 }
 
 func (cfg *BaseConfig) GetBaseConfig() *BaseConfig {

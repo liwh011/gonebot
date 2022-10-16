@@ -70,17 +70,17 @@ func (p *TestPlugin) GetPluginInfo() PluginInfo {
 }
 
 func Test_pluginInit(t *testing.T) {
-	RegisterPlugin(&TestPlugin{}, nil)
-	cfg := BaseConfig{
-		Websocket: WebsocketConfig{
-			Host:           "127.0.0.1",
-			Port:           6700,
-			AccessToken:    "asdsss",
-			ApiCallTimeout: 10,
-		},
-	}
-	cfg.Plugin.Enable = make(map[string]bool)
-	// cfg.Plugin.Enable["test@test"] = false
-	engine := NewEngine(&cfg)
-	engine.Run()
+	// RegisterPlugin(&TestPlugin{}, nil)
+	// cfg := BaseConfig{
+	// 	Websocket: WebsocketConfig{
+	// 		Host:           "127.0.0.1",
+	// 		Port:           6700,
+	// 		AccessToken:    "asdsss",
+	// 		ApiCallTimeout: 10,
+	// 	},
+	// }
+	// cfg.Plugin.Enable = make(map[string]bool)
+	// // cfg.Plugin.Enable["test@test"] = false
+	// engine := NewEngine(&cfg)
+	// engine.Run()
 }
