@@ -182,7 +182,7 @@ func convertJsonObjectToEvent(obj gjson.Result) I_Event {
 type MessageEvent struct {
 	Event
 	MessageType string  `json:"message_type"` // 消息类型，group, private
-	SubType     string  `json:"sub_type"`     // 消息子类型，friend, group, other
+	SubType     string  `json:"sub_type"`     // 消息子类型，friend, group, other | normal, anonymous, notice
 	MessageId   int32   `json:"message_id"`   // 消息ID
 	UserId      int64   `json:"user_id"`      // 消息发送者的QQ号
 	Message     Message `json:"message"`      // 消息内容
