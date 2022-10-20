@@ -24,9 +24,6 @@ type Engine struct {
 }
 
 func NewEngine(cfg Config) *Engine {
-	engine := &Engine{}
-	engine.Config = cfg
-
 	providerName := cfg.GetBaseConfig().Provider
 	providerList := providers.List()
 	providerListPrompt := strings.Join(providerList, ", ")
@@ -45,6 +42,15 @@ func NewEngine(cfg Config) *Engine {
 			log.Fatalf("不存在名为%s的Provider，且未找到任何已注册的Provider，请先导入", providerName)
 		}
 	}
+
+	return NewEngineWithProvider(cfg, provider)
+}
+
+// 直接指定Provider，忽略配置文件
+func NewEngineWithProvider(cfg Config, provider Provider) *Engine {
+	engine := &Engine{}
+	engine.Config = cfg
+
 	engine.provider = provider
 	engine.provider.Init(cfg)
 
@@ -110,14 +116,6 @@ MSG_LOOP:
 		f := *phf.(*EngineHookCallback)
 		f(engine)
 	})
-}
-
-func (engine *Engine) SetProvider(provider Provider) {
-	if engine.provider != nil {
-		log.Warnf("Provider已经设置，将覆盖原有设置：原为%T，新为%T", engine.provider, provider)
-	}
-	engine.provider = provider
-	engine.provider.Init(engine.Config)
 }
 
 type providerRegistry map[string]Provider
