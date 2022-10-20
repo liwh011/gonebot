@@ -115,7 +115,7 @@ func (bot *Bot) GetMsg(messageId int32) (*ApiResponse_GetMsg, error) {
 		MessageType: data.Get("message_type").String(),
 		MessageId:   int32(data.Get("message_id").Int()),
 		RealId:      int32(data.Get("real_id").Int()),
-		Message:     convertJsonArrayToMessage(data.Get("message").Array()),
+		Message:     ConvertJsonArrayToMessage(data.Get("message").Array()),
 	}
 	sender := MessageEventSender{
 		UserId:   data.Get("user_id").Int(),
@@ -150,7 +150,7 @@ func (bot *Bot) GetForwardMsg(messageId int32) (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := convertJsonArrayToMessage(data.Get("message").Array())
+	ret := ConvertJsonArrayToMessage(data.Get("message").Array())
 	return &ret, nil
 }
 
