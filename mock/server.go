@@ -69,7 +69,7 @@ func (server *MockServer) getMsgId() int32 {
 }
 
 // 下发事件
-func (server *MockServer) sendEvent(event gonebot.I_Event) {
+func (server *MockServer) SendEvent(event gonebot.I_Event) {
 	if server.AutoSendEvent {
 		for i, reciever := range server.eventRecievers {
 			select {
@@ -97,7 +97,7 @@ func (server *MockServer) ConnectedEvent() gonebot.LifeCycleMetaEvent {
 		MetaEventType: "lifecycle",
 		SubType:       "connect",
 	}
-	server.sendEvent(&ev)
+	server.SendEvent(&ev)
 	return ev
 }
 
@@ -224,13 +224,13 @@ func (server *MockServer) NewPrivateSession(userId int64) *PrivateSession {
 	}
 
 	return &PrivateSession{
-		server:   server,
+		Server:   server,
 		UserId:   userId,
 		Nickname: user.Nickname,
 		Sex:      user.Sex,
 		Age:      user.Age,
 		BotId:    server.BotId,
-		isFriend: user != nil,
+		IsFriend: user != nil,
 	}
 }
 
@@ -252,11 +252,11 @@ func (server *MockServer) NewGroupSession(groupId int64) *GroupSession {
 	}
 
 	return &GroupSession{
-		server:    server,
+		Server:    server,
 		GroupId:   groupId,
 		GroupName: group.GroupName,
 		BotId:     server.BotId,
-		group:     *group,
+		Group:     *group,
 	}
 }
 

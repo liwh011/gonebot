@@ -9,8 +9,8 @@ import (
 
 // 私聊会话
 type PrivateSession struct {
-	server   *MockServer
-	isFriend bool
+	Server   *MockServer
+	IsFriend bool
 
 	UserId   int64
 	Nickname string
@@ -20,12 +20,12 @@ type PrivateSession struct {
 }
 
 func (s *PrivateSession) getMsgId() int32 {
-	return s.server.getMsgId()
+	return s.Server.getMsgId()
 }
 
 // 获取聊天记录
 func (s *PrivateSession) GetMessageHistory() MessageHistory {
-	return s.server.messageHistory.getPrivateHistory(s.UserId)
+	return s.Server.messageHistory.getPrivateHistory(s.UserId)
 }
 
 // 模拟一个私聊消息事件
@@ -54,10 +54,10 @@ func (s *PrivateSession) MessageEvent(msg gonebot.Message) gonebot.PrivateMessag
 			Age:      s.Age,
 		},
 	}
-	if !s.isFriend {
+	if !s.IsFriend {
 		ev.SubType = "other"
 	}
-	s.server.sendEvent(&ev)
+	s.Server.SendEvent(&ev)
 	return ev
 }
 
@@ -82,7 +82,7 @@ func (s *PrivateSession) RecallEvent(msgId int32) gonebot.FriendRecallNoticeEven
 		UserId:    s.UserId,
 		MessageId: int64(msgId),
 	}
-	s.server.sendEvent(&ev)
+	s.Server.SendEvent(&ev)
 	return ev
 }
 
@@ -104,32 +104,32 @@ func (s *PrivateSession) PokeEvent() gonebot.PokeNoticeEvent {
 		UserId:   s.UserId,
 		TargetId: s.BotId,
 	}
-	s.server.sendEvent(&ev)
+	s.Server.SendEvent(&ev)
 	return ev
 }
 
 // 群聊会话
 type GroupSession struct {
-	server *MockServer
+	Server *MockServer
 	BotId  int64 // 机器人QQ号
 
 	GroupId   int64  // 群号
 	GroupName string // 群名
-	group     Group
+	Group     Group
 }
 
 func (s *GroupSession) getMsgId() int32 {
-	return s.server.getMsgId()
+	return s.Server.getMsgId()
 }
 
 // 获取聊天记录
 func (s *GroupSession) GetMessageHistory() MessageHistory {
-	return s.server.messageHistory.getGroupHistory(s.GroupId)
+	return s.Server.messageHistory.getGroupHistory(s.GroupId)
 }
 
 // 模拟一个群聊消息事件。当userId不存在时，会当作普通成员发送消息。
 func (s *GroupSession) MessageEvent(userId int64, msg gonebot.Message) gonebot.GroupMessageEvent {
-	member := s.group.GetMember(userId)
+	member := s.Group.GetMember(userId)
 	if member == nil {
 		member = &GroupMember{
 			UserId:   userId,
@@ -171,7 +171,7 @@ func (s *GroupSession) MessageEvent(userId int64, msg gonebot.Message) gonebot.G
 		},
 		Anonymous: nil,
 	}
-	s.server.sendEvent(&ev)
+	s.Server.SendEvent(&ev)
 	return ev
 }
 
@@ -198,6 +198,6 @@ func (s *GroupSession) AnonymousMessageEvent(anonymous gonebot.Anonymous, msg go
 		Sender:    &gonebot.GroupMessageEventSender{},
 		Anonymous: &anonymous,
 	}
-	s.server.sendEvent(&ev)
+	s.Server.SendEvent(&ev)
 	return ev
 }
