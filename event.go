@@ -140,7 +140,7 @@ func (e *Event) ExtractPlainText() string {
 }
 
 // 从JSON对象中生成Event对象（指针）
-func convertJsonObjectToEvent(obj gjson.Result) I_Event {
+func ConvertJsonObjectToEvent(obj gjson.Result) I_Event {
 	// 大多数事件的事件类型有3级，而第三级的subtype通常不影响事件的结构
 	// 所以下面只用了第一级和第二级类型来构造事件对象
 	postType := obj.Get("post_type").String()

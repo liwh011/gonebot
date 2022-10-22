@@ -72,7 +72,7 @@ func (adapter *OneBotAdapter) handleMessage(data []byte) {
 			log.Warnf("没有找到对应的回复通道，消息序号为%d", msg.Echo)
 		}
 	} else {
-		ev := convertJsonObjectToEvent(jsonData)
+		ev := ConvertJsonObjectToEvent(jsonData)
 		for _, ch := range adapter.eventRecievers {
 			ch <- ev
 		}
