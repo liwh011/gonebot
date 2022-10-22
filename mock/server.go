@@ -234,13 +234,33 @@ func (server *MockServer) NewPrivateSession(userId int64) *PrivateSession {
 	}
 }
 
-func (server *MockServer) NewGroupSession() *GroupSession {
+// 创建群聊会话。groupId为群号。若群号不存在，则创建一个空群聊。
+func (server *MockServer) NewGroupSession(groupId int64) *GroupSession {
+	var group *Group
+	for _, g := range server.Groups {
+		if g.GroupId == groupId {
+			group = &g
+			break
+		}
+	}
+
+	if group == nil {
+		group = &Group{
+			GroupId:   groupId,
+			GroupName: fmt.Sprintf("未知群聊%d", groupId),
+		}
+	}
+
 	return &GroupSession{
-		server: server,
-		BotId:  server.BotId,
+		server:    server,
+		GroupId:   groupId,
+		GroupName: group.GroupName,
+		BotId:     server.BotId,
+		group:     *group,
 	}
 }
 
+// 将Event转为消息记录
 func (server *MockServer) addEventToMessageHistory(event gonebot.I_Event) {
 	var rcd MessageRecord
 	switch event := event.(type) {

@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/liwh011/gonebot"
@@ -110,10 +111,11 @@ func (s *PrivateSession) PokeEvent() gonebot.PokeNoticeEvent {
 // 群聊会话
 type GroupSession struct {
 	server *MockServer
+	BotId  int64 // 机器人QQ号
 
 	GroupId   int64  // 群号
 	GroupName string // 群名
-	BotId     int64  // 机器人QQ号
+	group     Group
 }
 
 func (s *GroupSession) getMsgId() int32 {
@@ -125,8 +127,17 @@ func (s *GroupSession) GetMessageHistory() MessageHistory {
 	return s.server.messageHistory.getGroupHistory(s.GroupId)
 }
 
-// 模拟一个群聊消息事件
-func (s *GroupSession) MessageEvent(member GroupMember, msg gonebot.Message) gonebot.GroupMessageEvent {
+// 模拟一个群聊消息事件。当userId不存在时，会当作普通成员发送消息。
+func (s *GroupSession) MessageEvent(userId int64, msg gonebot.Message) gonebot.GroupMessageEvent {
+	member := s.group.GetMember(userId)
+	if member == nil {
+		member = &GroupMember{
+			UserId:   userId,
+			Nickname: fmt.Sprintf("未知群员%d", userId),
+			Role:     "member",
+		}
+	}
+
 	ev := gonebot.GroupMessageEvent{
 		MessageEvent: gonebot.MessageEvent{
 			Event: gonebot.Event{
