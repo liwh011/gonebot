@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
@@ -86,13 +88,15 @@ func (engine *Engine) Run() {
 	signal.Notify(osc, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGHUP)
 
 	// 处理消息
-	ch := make(chan I_Event)
-	engine.adapter.RecieveEvent(ch)
+	eventCh := make(chan I_Event)
+	engine.adapter.RecieveEvent(eventCh)
 
+	wg := sync.WaitGroup{}
+	eventCnt := int64(0)
 MSG_LOOP:
 	for {
 		select {
-		case ev := <-ch:
+		case ev := <-eventCh:
 			if ev.GetPostType() == PostType_MetaEvent {
 				if ev, ok := ev.(*LifeCycleMetaEvent); ok {
 					engine.bot.selfId = ev.SelfId
@@ -102,16 +106,40 @@ MSG_LOOP:
 			}
 
 			ctx := newContext(ev, engine)
-			go engine.handleEvent(ctx)
+			wg.Add(1)
+			atomic.AddInt64(&eventCnt, 1)
+			go func() {
+				defer func() {
+					wg.Done()
+					atomic.AddInt64(&eventCnt, -1)
+				}()
+				engine.handleEvent(ctx)
+			}()
 
 		case s := <-osc:
-			log.Infof("收到信号%s，停止处理消息", s)
+			log.Infof("收到信号%s，停止处理新的消息", s)
 			break MSG_LOOP
 		}
 	}
 
-	log.Info("正在执行清理工作")
 	engine.provider.Stop()
+
+	if eventCnt > 0 {
+		log.Infof("等待剩余%d个消息处理完成，Ctrl+C以强制跳过", eventCnt)
+		allEventHandled := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(allEventHandled)
+		}()
+		select {
+		case <-allEventHandled:
+			log.Info("所有事件处理完毕")
+		case <-osc:
+			log.Info("已跳过等待")
+		}
+	}
+
+	log.Info("正在执行清理工作")
 	EngineHookManager.runHook(LifecycleHookType_EngineWillTerminate, func(phf pHookFunc) {
 		f := *phf.(*EngineHookCallback)
 		f(engine)
