@@ -140,7 +140,7 @@ func (e *Event) ExtractPlainText() string {
 }
 
 // 从JSON对象中生成Event对象（指针）
-func convertJsonObjectToEvent(obj gjson.Result) I_Event {
+func ConvertJsonObjectToEvent(obj gjson.Result) I_Event {
 	// 大多数事件的事件类型有3级，而第三级的subtype通常不影响事件的结构
 	// 所以下面只用了第一级和第二级类型来构造事件对象
 	postType := obj.Get("post_type").String()
@@ -182,7 +182,7 @@ func convertJsonObjectToEvent(obj gjson.Result) I_Event {
 type MessageEvent struct {
 	Event
 	MessageType string  `json:"message_type"` // 消息类型，group, private
-	SubType     string  `json:"sub_type"`     // 消息子类型，friend, group, other
+	SubType     string  `json:"sub_type"`     // 消息子类型，friend, group, other | normal, anonymous, notice
 	MessageId   int32   `json:"message_id"`   // 消息ID
 	UserId      int64   `json:"user_id"`      // 消息发送者的QQ号
 	Message     Message `json:"message"`      // 消息内容

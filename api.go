@@ -5,16 +5,17 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type ApiParams wsRequestParams
+type ApiParams map[string]interface{}
 
 func (bot *Bot) CallApi(action string, params ApiParams) (*gjson.Result, error) {
 	log.Infof("正在调用接口%s", action)
-	rsp, err := bot.driver.CallApi(action, wsRequestParams(params))
+	rsp, err := bot.adapter.Request(action, params)
 	if err != nil {
 		log.Errorf("调用接口%s失败: %s", action, err)
 		return nil, err
 	}
-	return &rsp.Data, nil
+	data := rsp.(response).Data
+	return &data, nil
 }
 
 // 发送私聊消息
@@ -114,7 +115,7 @@ func (bot *Bot) GetMsg(messageId int32) (*ApiResponse_GetMsg, error) {
 		MessageType: data.Get("message_type").String(),
 		MessageId:   int32(data.Get("message_id").Int()),
 		RealId:      int32(data.Get("real_id").Int()),
-		Message:     convertJsonArrayToMessage(data.Get("message").Array()),
+		Message:     ConvertJsonArrayToMessage(data.Get("message").Array()),
 	}
 	sender := MessageEventSender{
 		UserId:   data.Get("user_id").Int(),
@@ -149,7 +150,7 @@ func (bot *Bot) GetForwardMsg(messageId int32) (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret := convertJsonArrayToMessage(data.Get("message").Array())
+	ret := ConvertJsonArrayToMessage(data.Get("message").Array())
 	return &ret, nil
 }
 
@@ -392,7 +393,7 @@ func (bot *Bot) GetGroupList() (*[]GroupInfo, error) {
 		return nil, err
 	}
 	var groups []GroupInfo
-	for _, v := range resp.Get("groups").Array() {
+	for _, v := range resp.Array() {
 		group := GroupInfo{
 			GroupId:        v.Get("group_id").Int(),
 			GroupName:      v.Get("group_name").String(),

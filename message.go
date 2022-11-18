@@ -242,7 +242,7 @@ func convertJsonObjectToMessageSegment(m gjson.Result) (seg MessageSegment) {
 	return
 }
 
-func convertJsonArrayToMessage(m []gjson.Result) (msg Message) {
+func ConvertJsonArrayToMessage(m []gjson.Result) (msg Message) {
 	for _, m := range m {
 		seg := convertJsonObjectToMessageSegment(m)
 		msg.AppendSegment(seg)

@@ -33,7 +33,7 @@ func (f *formatter) Format(entry *logrus.Entry) ([]byte, error) {
 		funcName := matches[3]
 		_, filename := path.Split(entry.Caller.File)
 
-		if entry.Level == logrus.ErrorLevel {
+		if entry.Level <= logrus.ErrorLevel {
 			result = fmt.Sprintf(
 				"%s %s | %s | %s - line %d - %s",
 				base,

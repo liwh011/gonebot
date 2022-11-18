@@ -27,6 +27,9 @@
     - [插件配置](./docs/plug_config.md)
 - 进阶
     - [钩子](./docs/hook.md)
+- 测试
+    - [测试前言](./docs/test_intro.md)
+    - [Mock服务器](./docs/mock_server.md)
 
 # TODO
 - [ ] Mock
