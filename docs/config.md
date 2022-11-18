@@ -4,17 +4,21 @@
 ## 基本配置文件
 你的配置文件应至少包含以下内容：
 ```yml
-websocket:
-  host: 127.0.0.1
-  port: 6700
-  access_token: dabsfckadakjdbkafbafa
-  apicall_timeout: 30
+apicall_timeout: 30
+provider: websocket
+provider_config:
+  websocket:
+    host: 127.0.0.1
+    port: 6700
+    access_token: asdsss
 ```
-- `websocket` 本框架采用正向WebSocket的方式连接到协议端，这里配置Ws服务端（协议提供端）的信息
-  - `host` Ws服务器主机地址
-  - `port` Ws服务器端口
-  - `access_token` 与Ws服务器配置的Access token一致
-  - `apicall_timeout` 调用协议端API超时时间（秒）
+- `apicall_timeout` 调用协议端API超时时间（秒）
+- `provider` 以什么方式与协议端连接
+- `provider_config` 该种连接方式的配置
+  - `websocket` 本框架默认采用正向WebSocket的方式连接到协议端，这里配置Ws服务端（协议提供端）的信息
+    - `host` Ws服务器主机地址
+    - `port` Ws服务器端口
+    - `access_token` 与Ws服务器配置的Access token一致
 
 
 随后调用`gonebot.LoadConfig(路径)`来载入配置。
@@ -60,20 +64,16 @@ gonebot.LoadCustomConfig("config.yml", &cfg)
 
 对应的配置文件如下：
 ```yaml
-websocket:
-  # Ws服务器主机地址
-  host: 127.0.0.1
-  # Ws服务器端口
-  port: 6700
-  # 与Ws服务器配置的Acess token一致
-  access_token: dabsfckadakjdbkafbafa
-  # 调用API超时时间（秒）
-  apicall_timeout: 30
+apicall_timeout: 30
+provider: websocket
+provider_config:
+  websocket:
+    host: 127.0.0.1
+    port: 6700
+    access_token: asdsss
 
 item1: 114514
-
 item2: abc
-
 obj1: 
   field1: true
 ```

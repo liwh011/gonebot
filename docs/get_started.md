@@ -20,12 +20,14 @@ import "github.com/liwh011/gonebot"
 
 func main() {
     cfg := gonebot.BaseConfig{
-        // 正向Websocket，ws服务器的地址
-        Websocket: gonebot.WebsocketConfig{
-            Host:           "127.0.0.1",
-            Port:           6700,
-            AccessToken:    "",
-            ApiCallTimeout: 10,
+        Provider: "websocket",
+        ProviderConfig: map[string]ProviderConfigMap{
+            "websocket": gonebot.WebsocketConfig{
+                Host:           "127.0.0.1",
+                Port:           6700,
+                AccessToken:    "",
+                ApiCallTimeout: 10,
+            },
         },
     }
     engine := gonebot.NewEngine(&cfg)

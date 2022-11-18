@@ -29,13 +29,13 @@ func (p *TestPlugin) GetPluginInfo() PluginInfo {
 }
 
 // 初始化插件
-func (p *TestPlugin) Init(proxy *EngineProxy) {
-    proxy.
+func (p *TestPlugin) Init(hub *PluginHub) {
+    hub.
         NewHandler(gonebot.EventNamePrivateMessage).
         Use(gonebot.Keyword("你好")).
         Handle(onPrivateHello)
 
-    proxy.
+    hub.
         NewHandler(gonebot.EventNameGroupMessage).
         Use(gonebot.OnlyToMe(), gonebot.Keyword("老婆")).
         Handle(onLaopo)

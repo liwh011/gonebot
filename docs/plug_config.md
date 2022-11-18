@@ -79,11 +79,13 @@ plugin:
 
 ## 完整配置文件参考
 ```yaml
-websocket:
-  host: 127.0.0.1
-  port: 6700
-  access_token: dabsfckadakjdbkafbafa
-  apicall_timeout: 30
+apicall_timeout: 30
+provider: websocket
+provider_config:
+  websocket:
+    host: 127.0.0.1
+    port: 6700
+    access_token: asdsss
 
 plugin:
   # 开关控制
