@@ -8,71 +8,49 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type OnebotMock struct {
-	recievers  []chan<- []byte
+type MockProvider struct {
+	recievers  []chan<- gonebot.I_Event
 	mockServer *mock.MockServer
 }
 
-func NewOnebotMock(mockServer *mock.MockServer) *OnebotMock {
-	return &OnebotMock{
+func NewMockProvider(mockServer *mock.MockServer) *MockProvider {
+	return &MockProvider{
 		mockServer: mockServer,
 	}
 }
 
-func (o *OnebotMock) Init(cfg gonebot.Config) {
+func (o *MockProvider) Init(cfg gonebot.Config) {
 
 }
 
-func (o *OnebotMock) Start() {
+func (o *MockProvider) Start() {
 	ch := make(chan gonebot.I_Event)
 	go func() {
-		for {
-			event := <-ch
-			data, _ := json.Marshal(event)
+		for event := range ch {
 			for _, reciever := range o.recievers {
-				reciever <- data
+				reciever <- event
 			}
 		}
 	}()
 	o.mockServer.RegisterEventReciever(ch)
 }
 
-func (o *OnebotMock) Stop() {
+func (o *MockProvider) Stop() {
 
 }
 
-func (o *OnebotMock) Send(data []byte) (interface{}, error) {
-	req := gjson.ParseBytes(data)
-	action := req.Get("action").String()
-	params := req.Get("params")
-	result, err := o.mockServer.HandleRequest(action, params)
-
-	var resp map[string]interface{}
-	if err == nil {
-		resp = map[string]interface{}{
-			"status":  "ok",
-			"retcode": 0,
-			"data":    result,
-			"echo":    req.Get("echo").Value(),
-		}
-	} else {
-		resp = map[string]interface{}{
-			"status":  "failed",
-			"retcode": 114514,
-			"msg":     err.Error(),
-			"wording": err.Error(),
-			"echo":    req.Get("echo").Value(),
-		}
-	}
-	respJson, _ := json.Marshal(resp)
-
-	for _, reciever := range o.recievers {
-		reciever <- respJson
+func (o *MockProvider) Request(route string, data interface{}) (interface{}, error) {
+	dataStr, _ := json.Marshal(data)
+	result, err := o.mockServer.HandleRequest(route, gjson.ParseBytes(dataStr))
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, nil
+	resultStr, _ := json.Marshal(result)
+	ret := gjson.ParseBytes(resultStr)
+	return &ret, nil
 }
 
-func (o *OnebotMock) Recieve(ch chan<- []byte) {
+func (o *MockProvider) Recieve(ch chan<- gonebot.I_Event) {
 	o.recievers = append(o.recievers, ch)
 }
