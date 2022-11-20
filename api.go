@@ -1,6 +1,8 @@
 package gonebot
 
 import (
+	"encoding/json"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
@@ -14,8 +16,31 @@ func (bot *Bot) CallApi(action string, params ApiParams) (*gjson.Result, error) 
 		log.Errorf("调用接口%s失败: %s", action, err)
 		return nil, err
 	}
-	data := rsp.(gjson.Result)
-	return &data, nil
+	switch rsp := rsp.(type) {
+	case *gjson.Result:
+		return rsp, nil
+	case gjson.Result:
+		return &rsp, nil
+	case string:
+		if gjson.Valid(rsp) {
+			ret := gjson.Parse(rsp)
+			return &ret, nil
+		}
+		panic("返回的数据不是json格式")
+	case []byte:
+		if gjson.ValidBytes(rsp) {
+			ret := gjson.ParseBytes(rsp)
+			return &ret, nil
+		}
+		panic("返回的数据不是json格式")
+	default:
+		if rsp == nil {
+			return nil, nil
+		}
+		str, _ := json.Marshal(rsp)
+		ret := gjson.ParseBytes(str)
+		return &ret, nil
+	}
 }
 
 // 发送私聊消息
