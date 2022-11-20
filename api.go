@@ -9,12 +9,12 @@ type ApiParams map[string]interface{}
 
 func (bot *Bot) CallApi(action string, params ApiParams) (*gjson.Result, error) {
 	log.Infof("正在调用接口%s", action)
-	rsp, err := bot.adapter.Request(action, params)
+	rsp, err := bot.provider.Request(action, params)
 	if err != nil {
 		log.Errorf("调用接口%s失败: %s", action, err)
 		return nil, err
 	}
-	data := rsp.(response).Data
+	data := rsp.(gjson.Result)
 	return &data, nil
 }
 
