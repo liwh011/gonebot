@@ -51,6 +51,6 @@ func (o *MockProvider) Request(route string, data interface{}) (interface{}, err
 	return &ret, nil
 }
 
-func (o *MockProvider) Recieve(ch chan<- gonebot.I_Event) {
+func (o *MockProvider) RecieveEvent(ch chan<- gonebot.I_Event) {
 	o.recievers = append(o.recievers, ch)
 }
