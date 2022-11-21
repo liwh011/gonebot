@@ -42,10 +42,13 @@
 - `ConnectedEvent` 生命周期的连接事件，初次连接时必须发送一个。`MockServer`会自动发送。
 
 ### 如何自行补充
-目前就只有这么些事件，本懒鬼表示将来不够再加。你当然也可以选择自己补充，毕竟Go支持在任何地方添加方法，session中的字段也全都是Public的。当然，顺手提个PR会更好~
+目前就只有这么些事件，本懒鬼表示将来不够再加。你当然也可以选择自己补充，session中的字段全都是Public的。当然，顺手提个PR会更好~
 
-以上提到的方法都在其内部调用了`mockServer.SendEvent`来将事件发出，你也可以参考这样来实现别的事件。
-**请注意，该方法仅会在`mockServer.AutoSendEvent`为`true`时发送事件**。
+本质上以上模拟事件的方法都在其内部调用了`mockServer.SendEvent`来将事件发出。
+**请注意，`mockServer.SendEvent`方法仅会在`mockServer.AutoSendEvent`为`true`时发送事件**。
+
+你可以编写一个函数，以session和其他必要的数据作为入参，函数中构造好事件后调用`mockServer.SendEvent`来下发事件。
+如果session中保存的数据无法满足你的需求，你也可以“继承”或自行编写，按照本框架类似的方法来下发事件即可。
 
 ## API调用处理
 实际上也没处理什么，只是简单的为无需返回值的API返回一个成功的响应而已。因此绝大多数`get_xxx`的API是无法使用的（除了`get_group_list`、`get_login_info`可以正常工作）。
