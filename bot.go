@@ -1,13 +1,13 @@
 package gonebot
 
 type Bot struct {
-	adapter *OneBotAdapter
+	provider Provider
 
 	selfId int64
 }
 
-func (bot *Bot) Init(adapter *OneBotAdapter) {
-	bot.adapter = adapter
+func (bot *Bot) Init(provider Provider) {
+	bot.provider = provider
 }
 
 func (bot *Bot) GetSelfId() int64 {

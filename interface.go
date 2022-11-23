@@ -4,12 +4,9 @@ type Provider interface {
 	Init(cfg Config)
 	Start()
 	Stop()
-	Send(data []byte) (interface{}, error)
-	Recieve(chan<- []byte)
-}
-
-type Adapter interface {
-	Init(cfg Config, provider Provider)
-	RecieveEvent(chan<- I_Event)
+	// 发送API请求。
+	// 参数：route为API路径；data为请求数据。
+	// 返回值：API返回值，可为map、struct、数组，总之是合法的json格式；error为错误信息。
 	Request(route string, data interface{}) (interface{}, error)
+	RecieveEvent(chan<- I_Event)
 }

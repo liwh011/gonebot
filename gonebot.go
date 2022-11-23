@@ -22,7 +22,6 @@ type Engine struct {
 	Config   Config
 	bot      *Bot
 	provider Provider
-	adapter  *OneBotAdapter
 }
 
 func NewEngine(cfg Config) *Engine {
@@ -56,11 +55,8 @@ func NewEngineWithProvider(cfg Config, provider Provider) *Engine {
 	engine.provider = provider
 	engine.provider.Init(cfg)
 
-	engine.adapter = &OneBotAdapter{}
-	engine.adapter.Init(cfg, engine.provider)
-
 	engine.bot = &Bot{}
-	engine.bot.Init(engine.adapter)
+	engine.bot.Init(engine.provider)
 
 	// 初始化handler
 	engine.Handler = Handler{
@@ -89,7 +85,7 @@ func (engine *Engine) Run() {
 
 	// 处理消息
 	eventCh := make(chan I_Event)
-	engine.adapter.RecieveEvent(eventCh)
+	engine.provider.RecieveEvent(eventCh)
 
 	wg := sync.WaitGroup{}
 	eventCnt := int64(0)
