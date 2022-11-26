@@ -77,6 +77,7 @@ func (engine *Engine) Run() {
 	if engine.provider == nil {
 		log.Fatal("尚未设置Provider，请import任意一个Provider")
 	}
+	engine.Hooks.EventHandled(engine.provider.OnEventHandled)
 	go engine.provider.Start()
 
 	// 注册操作系统信号接收
