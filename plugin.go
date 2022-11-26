@@ -10,7 +10,7 @@ import (
 func init() {
 	defaultPluginManager = newPluginManager()
 	// 添加钩子，Engine创建完毕后，初始化插件
-	EngineHookManager.EngineCreated(defaultPluginManager.InitPlugins)
+	GlobalHooks.EngineCreated(defaultPluginManager.InitPlugins)
 }
 
 // TODO 运行时装卸
@@ -65,19 +65,12 @@ func (pm *pluginManager) InitPlugins(engine *Engine) {
 		hub.plugin = plugin
 
 		log.Debugf("正在为插件%s运行PluginWillLoad钩子", id)
-		EngineHookManager.runHook(LifecycleHookType_PluginWillLoad, func(phf pHookFunc) {
-			f := *phf.(*PluginHookCallback)
-			f(&hub)
-		})
+		engine.Hooks.firePluginHook(pluginLifecycleHook_PluginWillLoad, &hub)
 
 		plugin.Init(&hub)
 
 		log.Debugf("正在为插件%s运行PluginLoaded钩子", id)
-		EngineHookManager.runHook(LifecycleHookType_PluginLoaded, func(phf pHookFunc) {
-			f := *phf.(*PluginHookCallback)
-			f(&hub)
-		})
-
+		engine.Hooks.firePluginHook(pluginLifecycleHook_PluginLoaded, &hub)
 		log.Infof("插件%s加载完毕", id)
 	}
 }
