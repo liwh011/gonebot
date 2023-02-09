@@ -112,3 +112,7 @@ func (p *WebsocketClientProvider) Request(route string, data interface{}) (inter
 func (p *WebsocketClientProvider) RecieveEvent(ch chan<- gonebot.I_Event) {
 	p.eventRecievers = append(p.eventRecievers, ch)
 }
+
+func (p *WebsocketClientProvider) OnEventHandled(ev gonebot.I_Event) {
+	// do nothing
+}

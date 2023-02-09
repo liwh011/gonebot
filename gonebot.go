@@ -11,17 +11,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func init() {
-	EngineHookManager = &engineHookManager{
-		hooks: make(map[lifecycleHookType][]pHookFunc),
-	}
-}
-
 type Engine struct {
 	Handler
 	Config   Config
 	bot      *Bot
 	provider Provider
+	Hooks    engineHookManager
 }
 
 func NewEngine(cfg Config) *Engine {
@@ -51,6 +46,11 @@ func NewEngine(cfg Config) *Engine {
 func NewEngineWithProvider(cfg Config, provider Provider) *Engine {
 	engine := &Engine{}
 	engine.Config = cfg
+	engine.Hooks = engineHookManager{
+		hookManager: hookManager{
+			hookMap: make(map[hookType][]pHookFunc),
+		},
+	}
 
 	engine.provider = provider
 	engine.provider.Init(cfg)
@@ -65,7 +65,7 @@ func NewEngineWithProvider(cfg Config, provider Provider) *Engine {
 	}
 
 	// 通知钩子
-	EngineHookManager.runHook(LifecycleHookType_EngineCreated, func(phf pHookFunc) {
+	GlobalHooks.runHook(engineLifecycleHook_EngineCreated, func(phf pHookFunc) {
 		f := *phf.(*EngineHookCallback)
 		f(engine)
 	})
@@ -77,6 +77,7 @@ func (engine *Engine) Run() {
 	if engine.provider == nil {
 		log.Fatal("尚未设置Provider，请import任意一个Provider")
 	}
+	engine.Hooks.EventHandled(engine.provider.OnEventHandled)
 	go engine.provider.Start()
 
 	// 注册操作系统信号接收
@@ -100,6 +101,7 @@ MSG_LOOP:
 			} else {
 				log.Info(ev.GetEventDescription())
 			}
+			engine.Hooks.fireEventHook(eventLifecycleHook_EventRecieved, ev)
 
 			ctx := newContext(ev, engine)
 			wg.Add(1)
@@ -109,6 +111,7 @@ MSG_LOOP:
 					wg.Done()
 					atomic.AddInt64(&eventCnt, -1)
 				}()
+				defer engine.Hooks.fireEventHook(eventLifecycleHook_EventHandled, ev)
 				engine.handleEvent(ctx)
 			}()
 
@@ -136,7 +139,7 @@ MSG_LOOP:
 	}
 
 	log.Info("正在执行清理工作")
-	EngineHookManager.runHook(LifecycleHookType_EngineWillTerminate, func(phf pHookFunc) {
+	GlobalHooks.runHook(engineLifecycleHook_EngineWillTerminate, func(phf pHookFunc) {
 		f := *phf.(*EngineHookCallback)
 		f(engine)
 	})
@@ -158,72 +161,4 @@ func (reg providerRegistry) List() []string {
 		list = append(list, k)
 	}
 	return list
-}
-
-type pHookFunc interface{}
-
-// Engine的生命周期钩子
-type engineHookManager struct {
-	hooks map[lifecycleHookType][]pHookFunc
-}
-
-// Engine的生命周期钩子
-var EngineHookManager *engineHookManager
-
-type lifecycleHookType int
-
-const (
-	// Engine创建后触发
-	LifecycleHookType_EngineCreated lifecycleHookType = iota
-
-	LifecycleHookType_PluginWillLoad
-	LifecycleHookType_PluginLoaded
-
-	LifecycleHookType_EngineWillTerminate
-)
-
-func (eh *engineHookManager) runHook(hookType lifecycleHookType, exec func(pHookFunc)) {
-	for _, hook := range eh.hooks[hookType] {
-		exec(hook)
-	}
-}
-
-func (eh *engineHookManager) removeHook(hookType lifecycleHookType, hook pHookFunc) {
-	for i, f := range eh.hooks[hookType] {
-		if f == hook {
-			eh.hooks[hookType] = append(eh.hooks[hookType][:i], eh.hooks[hookType][i+1:]...)
-			break
-		}
-	}
-}
-
-func (eh *engineHookManager) addHook(hookType lifecycleHookType, hook pHookFunc) (cancel func()) {
-	eh.hooks[hookType] = append(eh.hooks[hookType], hook)
-	return func() {
-		eh.removeHook(hookType, hook)
-	}
-}
-
-type EngineHookCallback func(*Engine)
-
-// 注册EngineCreated钩子
-func (eh *engineHookManager) EngineCreated(f EngineHookCallback) (cancel func()) {
-	return eh.addHook(LifecycleHookType_EngineCreated, &f)
-}
-
-// 注册EngineWillTerminate钩子
-func (eh *engineHookManager) EngineWillTerminate(f EngineHookCallback) (cancel func()) {
-	return eh.addHook(LifecycleHookType_EngineWillTerminate, &f)
-}
-
-type PluginHookCallback func(*PluginHub)
-
-// 每个插件即将加载时触发
-func (eh *engineHookManager) PluginWillLoad(f PluginHookCallback) (cancel func()) {
-	return eh.addHook(LifecycleHookType_PluginWillLoad, &f)
-}
-
-// 每个插件加载完毕时触发
-func (eh *engineHookManager) PluginLoaded(f PluginHookCallback) (cancel func()) {
-	return eh.addHook(LifecycleHookType_PluginLoaded, &f)
 }
