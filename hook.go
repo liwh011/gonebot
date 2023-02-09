@@ -1,16 +1,14 @@
 package gonebot
 
+// 任意函数类型的指针
 type pHookFunc interface{}
 
 // Engine的生命周期钩子
 type hookType int
 
+// hook管理器基类
 type hookManager struct {
 	hookMap map[hookType][]pHookFunc
-}
-
-type globalHookManager struct {
-	hookManager
 }
 
 func (eh *hookManager) runHook(hookType hookType, exec func(pHookFunc)) {
@@ -35,7 +33,16 @@ func (eh *hookManager) removeHook(hookType hookType, hook pHookFunc) {
 	}
 }
 
-// Engine的生命周期钩子
+/*
+ * 全局钩子
+ */
+
+// 全局钩子，不隶属于特定的Engine实例。Engine的生命周期钩子也会在这里触发
+type globalHookManager struct {
+	hookManager
+}
+
+// 全局钩子，不隶属于特定的Engine实例。Engine的生命周期钩子也会在这里触发
 var GlobalHooks globalHookManager = globalHookManager{
 	hookManager: hookManager{
 		hookMap: make(map[hookType][]pHookFunc),
@@ -61,13 +68,14 @@ func (eh *hookManager) EngineWillTerminate(f EngineHookCallback) (cancel func())
 }
 
 /*
- * 以下为挂在Engine上的钩子
+ * 以下为挂在Engine上的钩子，需要通过engine.Hooks访问
  */
 
 type engineHookManager struct {
 	hookManager
 }
 
+// 插件生命周期钩子
 const (
 	pluginLifecycleHook_PluginWillLoad hookType = iota + 2000
 	pluginLifecycleHook_PluginLoaded
@@ -75,7 +83,7 @@ const (
 
 type PluginHookCallback func(*PluginHub)
 
-func (eh *hookManager) firePluginHook(hookType hookType, hub *PluginHub) {
+func (eh *engineHookManager) firePluginHook(hookType hookType, hub *PluginHub) {
 	eh.runHook(hookType, func(hook pHookFunc) {
 		(*hook.(*PluginHookCallback))(hub)
 	})
@@ -93,6 +101,7 @@ func (eh *engineHookManager) PluginLoaded(f PluginHookCallback) (cancel func()) 
 
 type EventHookCallback func(I_Event)
 
+// 事件生命周期
 const (
 	eventLifecycleHook_EventRecieved hookType = iota + 3000
 	eventLifecycleHook_EventHandled
