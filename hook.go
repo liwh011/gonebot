@@ -58,22 +58,18 @@ const (
 type EngineHookCallback func(*Engine)
 
 // 注册EngineCreated钩子
-func (eh *hookManager) EngineCreated(f EngineHookCallback) (cancel func()) {
+func (eh *globalHookManager) EngineCreated(f EngineHookCallback) (cancel func()) {
 	return eh.addHook(engineLifecycleHook_EngineCreated, &f)
 }
 
 // 注册EngineWillTerminate钩子
-func (eh *hookManager) EngineWillTerminate(f EngineHookCallback) (cancel func()) {
+func (eh *globalHookManager) EngineWillTerminate(f EngineHookCallback) (cancel func()) {
 	return eh.addHook(engineLifecycleHook_EngineWillTerminate, &f)
 }
 
-/*
- * 以下为挂在Engine上的钩子，需要通过engine.Hooks访问
- */
-
-type engineHookManager struct {
-	hookManager
-}
+// 将插件钩子放在Global的考量是，让插件在模块的init函数中就可以注册钩子，以监听到所有插件。
+// 而如果放在engine实例中，按照设计，插件必须等待engine实例调用Init函数才能获取到engine实例。
+// 又因为插件是按先后顺序加载的，如果一个插件在它被加载的时候才注册钩子，那么它就会错过前面插件。
 
 // 插件生命周期钩子
 const (
@@ -83,20 +79,28 @@ const (
 
 type PluginHookCallback func(*PluginHub)
 
-func (eh *engineHookManager) firePluginHook(hookType hookType, hub *PluginHub) {
+func (eh *globalHookManager) firePluginHook(hookType hookType, hub *PluginHub) {
 	eh.runHook(hookType, func(hook pHookFunc) {
 		(*hook.(*PluginHookCallback))(hub)
 	})
 }
 
 // 每个插件即将加载时触发
-func (eh *engineHookManager) PluginWillLoad(f PluginHookCallback) (cancel func()) {
+func (eh *globalHookManager) PluginWillLoad(f PluginHookCallback) (cancel func()) {
 	return eh.addHook(pluginLifecycleHook_PluginWillLoad, &f)
 }
 
 // 每个插件加载完毕时触发
-func (eh *engineHookManager) PluginLoaded(f PluginHookCallback) (cancel func()) {
+func (eh *globalHookManager) PluginLoaded(f PluginHookCallback) (cancel func()) {
 	return eh.addHook(pluginLifecycleHook_PluginLoaded, &f)
+}
+
+/*
+ * 以下为挂在Engine上的钩子，需要通过engine.Hooks访问
+ */
+
+type engineHookManager struct {
+	hookManager
 }
 
 type EventHookCallback func(I_Event)
