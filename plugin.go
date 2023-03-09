@@ -13,8 +13,6 @@ func init() {
 	GlobalHooks.EngineCreated(defaultPluginManager.InitPlugins)
 }
 
-// TODO 运行时装卸
-
 // 插件管理器，理应是个单例
 type pluginManager struct {
 	plugins             map[string]Plugin
@@ -65,12 +63,12 @@ func (pm *pluginManager) InitPlugins(engine *Engine) {
 		hub.plugin = plugin
 
 		log.Debugf("正在为插件%s运行PluginWillLoad钩子", id)
-		engine.Hooks.firePluginHook(pluginLifecycleHook_PluginWillLoad, &hub)
+		GlobalHooks.firePluginHook(pluginLifecycleHook_PluginWillLoad, &hub)
 
 		plugin.Init(&hub)
 
 		log.Debugf("正在为插件%s运行PluginLoaded钩子", id)
-		engine.Hooks.firePluginHook(pluginLifecycleHook_PluginLoaded, &hub)
+		GlobalHooks.firePluginHook(pluginLifecycleHook_PluginLoaded, &hub)
 		log.Infof("插件%s加载完毕", id)
 	}
 }
