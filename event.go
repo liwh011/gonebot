@@ -164,6 +164,9 @@ func ConvertJsonObjectToEvent(obj gjson.Result) I_Event {
 		ev = &Event{}
 	}
 
+	// 由于使用的是指针，需要拷贝一份Event对象再来填充数据
+	ev = createUnderlyingStruct(ev).(I_Event)
+
 	// 借助json库将JSON对象中的字段赋值给Event对象，懒得自个写反射了
 	err := json.Unmarshal([]byte(obj.Raw), ev)
 	if err != nil {
@@ -480,7 +483,7 @@ func (e *HonorNoticeEvent) GetSubType() string {
 	return e.SubType
 }
 
-//  群成员名片更新
+// 群成员名片更新
 type GroupCardNoticeEvent struct {
 	NoticeEvent
 	GroupId int64  `json:"group_id"` // 群号
@@ -489,7 +492,7 @@ type GroupCardNoticeEvent struct {
 	CardOld string `json:"card_old"` // 旧名片
 }
 
-//  接收到离线文件
+// 接收到离线文件
 type OfflineFileNoticeEvent struct {
 	NoticeEvent
 	UserId int64 `json:"user_id"` // 用户 ID
@@ -500,7 +503,7 @@ type OfflineFileNoticeEvent struct {
 	} `json:"file"`
 }
 
-//  其他客户端在线状态变更
+// 其他客户端在线状态变更
 type ClientStatusNoticeEvent struct {
 	NoticeEvent
 	Client struct {
@@ -511,7 +514,7 @@ type ClientStatusNoticeEvent struct {
 	Online bool `json:"online"` // 在线状态
 }
 
-//  精华消息
+// 精华消息
 type EssenceNoticeEvent struct {
 	NoticeEvent
 	SubType    string `json:"sub_type"` // 通知子类型，essence
