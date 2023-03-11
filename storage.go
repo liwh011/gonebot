@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"strings"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -81,6 +82,9 @@ type boltBucketBatch struct {
 }
 
 func (f *boltDBFactory) CreateStorage(dbName string) (Storage, error) {
+	if !strings.HasSuffix(dbName, ".db") {
+		dbName += ".db"
+	}
 	connection, err := bolt.Open(dbName, 0600, nil)
 	if err != nil {
 		return nil, fmt.Errorf("打开%s数据库文件发生错误：%v", dbName, err)
